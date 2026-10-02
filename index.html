@@ -67,7 +67,7 @@ import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { CSS2DRenderer, CSS2DObject } from 'three/addons/renderers/CSS2DRenderer.js';
 
-console.log('[Cubica 3D] v12.7');
+console.log('[Cubica 3D] v12.8 — mobile adaptive');
 startCubica3D();
 
 function startCubica3D() {
@@ -115,12 +115,21 @@ function startCubica3D() {
 
   const MISSING = { r: ROWS - 1, c: COLS - 1 };
 
+  // === АДАПТАЦИЯ ПОД РАЗНЫЕ ЭКРАНЫ ===
+  // isMobile: определяем узкий экран (<= 768px)
+  const isMobile = window.innerWidth <= 768;
+  // На мобильных модель чуть меньше (радиус больше → камера дальше)
+  const MODEL_RADIUS = isMobile ? 1.35 : 1.05;
+  // На мобильных контейнер пониже, но это в основном касается iframe — здесь оставляем гибко
+  if (isMobile) {
+    container.style.height = '360px';
+  }
+
   const scene = new THREE.Scene();
   scene.background = new THREE.Color(0xf4f2ee);
   scene.fog = new THREE.Fog(0xf4f2ee, 7, 16);
 
   const MODEL_CENTER = new THREE.Vector3(0.15, 0.15, 0);
-  const MODEL_RADIUS = 1.05;
   const ZOOM_FACTOR = 0.72;
   const VIEW_DIR = new THREE.Vector3(0.62, 0.50, 0.60).normalize();
 
@@ -889,27 +898,36 @@ function startCubica3D() {
   function injectUI() {
     if (document.getElementById('cubica-ui')) return;
     const style = document.createElement('style');
+    // ВАЖНО: на мобильных вкладки и кнопки становятся вертикальными стопками
     style.textContent = `
       #cubica-ui { position: absolute; left: 0; right: 0; top: 0; bottom: 0;
         display: flex; flex-direction: column; align-items: center; justify-content: space-between;
         z-index: 5; pointer-events: none; user-select: none;
         font-family: -apple-system, "Segoe UI", Roboto, Arial, sans-serif;
         padding: 18px 12px 24px 12px; }
-      #cubica-controls { display: flex; border-radius: 2px; overflow: hidden; box-shadow: 0 4px 18px rgba(0,0,0,.12); pointer-events: auto; max-width: 100%; background: rgba(255,255,255,0.85); }
-      #cubica-tabs { display: flex; background: #fff; border-radius: 2px; overflow: hidden; box-shadow: 0 -4px 18px rgba(0,0,0,.10); pointer-events: auto; width: 100%; max-width: 860px; }
-      #cubica-tabs button, #cubica-controls button { all: unset; cursor: pointer; font-weight: 500; color: #4a4f55; background: #fff; border-right: 1px solid #d8d5d0; transition: background .18s, color .18s; white-space: nowrap; text-align: center; box-sizing: border-box; }
-      #cubica-tabs button { flex: 1 1 0; padding: 14px 26px; font-size: 14px; }
-      #cubica-controls button { padding: 8px 16px; font-size: 12px; color:#5a6068; }
+      #cubica-controls { display: flex; border-radius: 2px; overflow: hidden; box-shadow: 0 4px 18px rgba(0,0,0,.12); pointer-events: auto; max-width: 100%; background: rgba(255,255,255,0.85); flex-wrap: wrap; justify-content: center; }
+      #cubica-tabs { display: flex; background: #fff; border-radius: 2px; overflow: hidden; box-shadow: 0 -4px 18px rgba(0,0,0,.10); pointer-events: auto; width: 100%; max-width: 860px; flex-wrap: wrap; justify-content: center; }
+      #cubica-tabs button, #cubica-controls button { all: unset; cursor: pointer; font-weight: 500; color: #4a4f55; background: #fff; border-right: 1px solid #d8d5d0; border-bottom: 1px solid #d8d5d0; transition: background .18s, color .18s; white-space: nowrap; text-align: center; box-sizing: border-box; }
+      #cubica-tabs button { flex: 1 1 33%; padding: 14px 26px; font-size: 14px; }
+      #cubica-controls button { flex: 1 1 auto; padding: 8px 16px; font-size: 12px; color:#5a6068; }
       #cubica-tabs button:last-child, #cubica-controls button:last-child { border-right: 0; }
       #cubica-tabs button:hover, #cubica-controls button:hover { background: #f3f1ed; }
       #cubica-tabs button.active { background: #9c1c1c; color: #fff; font-weight: 600; }
       #cubica-controls button.active { background: #e3d9cf; color: #9c1c1c; font-weight: 600; }
       #cubica-controls button[data-act="labels"] { border-left: 1px solid #d8d5d0; color: #9c1c1c; font-weight: 600; }
-      @media (max-width: 640px) {
-        #cubica-ui { padding: 12px 8px 20px 8px; }
-        #cubica-tabs { flex-wrap: wrap; justify-content: center; }
-        #cubica-tabs button { padding: 11px 12px; font-size: 12px; flex: 1 1 auto; }
-        #cubica-controls button { padding: 6px 10px; font-size: 11px; }
+
+      /* Планшет */
+      @media (max-width: 768px) {
+        #cubica-ui { padding: 8px 6px 12px 6px; }
+        #cubica-tabs button { padding: 10px 12px; font-size: 12px; flex: 1 1 33%; }
+        #cubica-controls button { padding: 7px 10px; font-size: 11px; }
+      }
+      /* Телефон: вкладки — 1 в строку, кнопки — по 2 в строку */
+      @media (max-width: 480px) {
+        #cubica-ui { padding: 6px 4px 10px 4px; }
+        #cubica-tabs { max-width: 100%; }
+        #cubica-tabs button { flex: 1 1 100%; padding: 8px 8px; font-size: 11px; }
+        #cubica-controls button { flex: 1 1 33%; padding: 6px 4px; font-size: 10px; }
       }
     `;
     document.head.appendChild(style);
