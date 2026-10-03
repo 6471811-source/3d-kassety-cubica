@@ -68,10 +68,10 @@
   </button>
 </div>
 
-<!-- Three.js UMD-сборки (без importmap и без type=module) -->
-<script src="https://cdn.jsdelivr.net/npm/three@0.150.1/build/three.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/three@0.150.1/examples/js/controls/OrbitControls.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/three@0.150.1/examples/js/renderers/CSS2DRenderer.js"></script>
+<!-- Three.js UMD-сборки версии 0.148.0 — последняя, где есть three.min.js -->
+<script src="https://cdn.jsdelivr.net/npm/three@0.148.0/build/three.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.148.0/examples/js/controls/OrbitControls.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.148.0/examples/js/renderers/CSS2DRenderer.js"></script>
 
 <script>
 (function waitForThree() {
@@ -82,7 +82,7 @@
   var CSS2DRenderer = THREE.CSS2DRenderer;
   var CSS2DObject = THREE.CSS2DObject;
 
-  console.log('[Cubica 3D] v12.25 umd-mobile');
+  console.log('[Cubica 3D] v12.30 umd-0.148');
 
   var container = document.getElementById('cubica-3d');
   if (!container) { console.error('[Cubica 3D] Не найден #cubica-3d'); return; }
@@ -221,7 +221,7 @@
     allLabelEls.push({ el: div, modelKey: modelKey });
   }
 
-  // ============== МОДЕЛЬ: ПОДВЕС ==============
+  // ============== ПОДВЕС ==============
   function makeSuspension(hookMode) {
     hookMode = hookMode || 'flat';
     var g = new THREE.Group();
@@ -325,7 +325,7 @@
     return g;
   }
 
-  // ============== МОДЕЛЬ: LAY-IN ==============
+  // ============== LAY-IN ==============
   function buildLayIn() {
     var root = new THREE.Group();
     var animatables = [];
@@ -494,7 +494,7 @@
     return { root: root, animatables: animatables };
   }
 
-  // ============== МОДЕЛЬ: CLIP-IN ==============
+  // ============== CLIP-IN ==============
   function buildClipIn() {
     var root = new THREE.Group();
     var animatables = [];
@@ -609,7 +609,7 @@
     return { root: root, animatables: animatables };
   }
 
-  // ============== МОДЕЛЬ: HOOK ON ==============
+  // ============== HOOK ON ==============
   function buildHookOn() {
     var root = new THREE.Group();
     var animatables = [];
