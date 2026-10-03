@@ -7,7 +7,7 @@
 <style>
   * { box-sizing: border-box; }
   html, body { margin: 0; padding: 0; height: 100%; background: #f4f2ee; overflow: hidden; }
-  #cubica-3d { position: relative; width: 100%; height: 640px; max-width: 1200px; margin: 0 auto; overflow: hidden; background: #f4f2ee; }
+  #cubica-3d { position: relative; width: 100%; height: 100vh; max-width: 1200px; margin: 0 auto; overflow: hidden; background: #f4f2ee; }
   #cubica-3d.cubica-fallback-fs { position: fixed !important; inset: 0 !important; z-index: 99999; max-width: none; height: 100vh; width: 100vw; }
   .label-3d {
     color: #2a2f35;
@@ -27,28 +27,12 @@
   #cubica-fs-btn { position: absolute; top: 14px; right: 14px; width: 38px; height: 38px; border-radius: 4px; border: 1px solid rgba(42,47,53,0.15); background: rgba(255,255,255,0.92); color: #2a2f35; cursor: pointer; display: flex; align-items: center; justify-content: center; z-index: 5; padding: 0; }
   #cubica-fs-btn:hover { background: #fff; }
   #cubica-fs-btn svg { width: 18px; height: 18px; }
-
   .cubica-watermark-bg {
-    position: absolute;
-    top: -50%; left: -50%;
-    width: 200%; height: 200%;
-    z-index: 1;
-    pointer-events: none;
-    user-select: none;
-    transform: rotate(-30deg);
-    transform-origin: center center;
-    opacity: 0.15;
+    position: absolute; top: -50%; left: -50%; width: 200%; height: 200%;
+    z-index: 1; pointer-events: none; user-select: none;
+    transform: rotate(-30deg); transform-origin: center center; opacity: 0.15;
     background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='220' height='120' viewBox='0 0 220 120'><text x='10' y='70' font-family='-apple-system,Segoe UI,Roboto,Arial,sans-serif' font-size='16' font-weight='600' fill='%239c1c1c'>Cubica.by</text></svg>");
-    background-repeat: repeat;
-    background-size: 220px 120px;
-  }
-
-  /* МОБИЛЬНАЯ ВЫСОТА */
-  @media (max-width: 768px) {
-    #cubica-3d { height: 560px; }
-  }
-  @media (max-width: 480px) {
-    #cubica-3d { height: 520px; }
+    background-repeat: repeat; background-size: 220px 120px;
   }
 </style>
 </head>
@@ -76,7 +60,7 @@ import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { CSS2DRenderer, CSS2DObject } from 'three/addons/renderers/CSS2DRenderer.js';
 
-console.log('[Cubica 3D] v12.11 — fixed centering');
+console.log('[Cubica 3D] v12.14 — auto-fit');
 startCubica3D();
 
 function startCubica3D() {
@@ -124,19 +108,33 @@ function startCubica3D() {
 
   const MISSING = { r: ROWS - 1, c: COLS - 1 };
 
-  // АДАПТАЦИЯ
-  const isMobile = window.innerWidth <= 768;
-  const isSmall  = window.innerWidth <= 480;
-  let MODEL_RADIUS = 0.85;
-  if (isMobile) MODEL_RADIUS = 1.0;
-  if (isSmall)  MODEL_RADIUS = 1.1;
+  // ============ АВТО-ПОДСТРОЙКА ПОД КОНТЕЙНЕР ============
+  // Если контейнер низкий (<600) — модель автоматически уменьшается
+  const cw = container.clientWidth || window.innerWidth;
+  const ch = container.clientHeight || window.innerHeight;
+  const isNarrow = cw <= 768;
+  const isShort = ch < 600;
+  const isVeryShort = ch < 480;
+  const isSmall = cw <= 480;
+
+  // Чем ниже контейнер — тем больше радиус (дальше камера → меньше модель)
+  let MODEL_RADIUS;
+  if (isVeryShort)      MODEL_RADIUS = 1.7;  // очень низкий — модель мелкая
+  else if (isShort)     MODEL_RADIUS = 1.45; // низкий — средняя
+  else if (isNarrow)    MODEL_RADIUS = 1.25; // мобильный — стандарт
+  else                  MODEL_RADIUS = 1.05; // десктоп — крупная
+
+  // Смещение центра: поднимаем модель, чтобы внизу осталось место под кнопки
+  let centerY;
+  if (isVeryShort)      centerY = 0.55;
+  else if (isShort)     centerY = 0.40;
+  else                  centerY = 0.28;
 
   const scene = new THREE.Scene();
   scene.background = null;
   scene.fog = new THREE.Fog(0xf4f2ee, 7, 16);
 
-  // ВАЖНО: сдвигаем центр модели вниз, чтобы она была посередине
-  const MODEL_CENTER = new THREE.Vector3(0.15, -0.05, 0);
+  const MODEL_CENTER = new THREE.Vector3(0.15, centerY, 0);
   const ZOOM_FACTOR = 0.72;
   const VIEW_DIR = new THREE.Vector3(0.62, 0.50, 0.60).normalize();
 
@@ -224,11 +222,9 @@ function startCubica3D() {
     const g = new THREE.Group();
     const wireR = 0.0012;
     const wireA_x = -0.0018, wireB_x = 0.0018;
-
     const baseY = 0.120;
     const SCALE = 0.5;
     const transformY = (y) => baseY + (y - baseY) * SCALE;
-
     const plugTopY = transformY(1.15);
     const wireA_top = transformY(1.15 - 0.010);
     const wireA_bot = baseY;
@@ -240,16 +236,13 @@ function startCubica3D() {
     loopTop.rotation.y = Math.PI / 2;
     loopTop.position.set(wireA_x, plugTopY, 0);
     g.add(loopTop);
-
     const tipTop = new THREE.Mesh(new THREE.CylinderGeometry(wireR, wireR, 0.012, 8), matWire);
     tipTop.position.set(wireA_x + 0.006, plugTopY - 0.004, 0);
     tipTop.rotation.z = Math.PI / 2.6;
     g.add(tipTop);
-
     const wireA = new THREE.Mesh(new THREE.CylinderGeometry(wireR, wireR, wireA_top - wireA_bot, 8), matWire);
     wireA.position.set(wireA_x, (wireA_top + wireA_bot) / 2, 0);
     g.add(wireA);
-
     const wireB = new THREE.Mesh(new THREE.CylinderGeometry(wireR, wireR, wireB_top - wireB_bot, 8), matWire);
     wireB.position.set(wireB_x, (wireB_top + wireB_bot) / 2, 0);
     g.add(wireB);
@@ -483,4 +476,669 @@ function startCubica3D() {
     addLabel(root, 'layin', 'Т24 профиль',
       new THREE.Vector3(-W/2 + 2*CELL, FLANGE_T + 0.0005, -D/2 + CELL*0.5 + CELL),
       new THREE.Vector3(-0.35, 0.35, 0.25));
-    addLabel(root, 'layin', 'Подвес регули
+    addLabel(root, 'layin', 'Подвес регулируемый',
+      new THREE.Vector3(suspX[0], plateY, -D/2),
+      new THREE.Vector3(suspX[0] - 0.45, plateY + 0.15, -D/2 - 0.20));
+    const clipAnchor = new THREE.Vector3(-W/2 + CELL/2 + CELL*2 - CELL*0.22, BULB_TOP - 0.005, -D/2 + CELL);
+    addLabel(root, 'layin', 'Клипса фиксации кассеты', clipAnchor,
+      new THREE.Vector3(clipAnchor.x + 0.35, 0.15, clipAnchor.z + 0.35));
+
+    return { root, animatables };
+  }
+
+  function buildClipIn() {
+    const root = new THREE.Group();
+    const animatables = [];
+
+    function makeClipInRunner(len) {
+      const halfW = CI_SIDE / 2, h = CI_TRI_H;
+      const outer = new THREE.Shape();
+      outer.moveTo(-halfW, 0); outer.lineTo( halfW, 0); outer.lineTo( 0, -h); outer.lineTo(-halfW, 0);
+      const cy = -h / 3, k = CI_HOLLOW;
+      const inner = new THREE.Path();
+      inner.moveTo(-halfW * k, cy + (0 - cy) * k);
+      inner.lineTo( halfW * k, cy + (0 - cy) * k);
+      inner.lineTo( 0, cy + (-h - cy) * k);
+      inner.lineTo(-halfW * k, cy + (0 - cy) * k);
+      outer.holes.push(inner);
+      const geo = new THREE.ExtrudeGeometry(outer, { depth: len, bevelEnabled: false, curveSegments: 1 });
+      geo.rotateY(Math.PI / 2);
+      geo.translate(-len / 2, 0, 0);
+      const g = new THREE.Group();
+      g.add(new THREE.Mesh(geo, matGalv));
+      g.traverse(o => { if (o.isMesh) { o.castShadow = true; o.receiveShadow = true; } });
+      return g;
+    }
+
+    function makeClipInCassette() {
+      const g = new THREE.Group();
+      const s = CI_PANEL_SZ, lip = CI_LIP_H;
+      const panel = new THREE.Mesh(new THREE.BoxGeometry(s, CI_PANEL_T, s), matPanel);
+      g.add(panel);
+      const mkSide = (axis, sign) => {
+        const off = s / 2 + CI_EDGE_T / 2;
+        const geo = axis === 'z'
+          ? new THREE.BoxGeometry(s + 2 * CI_EDGE_T, lip, CI_EDGE_T)
+          : new THREE.BoxGeometry(CI_EDGE_T, lip, s + 2 * CI_EDGE_T);
+        const wall = new THREE.Mesh(geo, matEdge);
+        if (axis === 'z') wall.position.set(0, CI_PANEL_T / 2 + lip / 2, sign * off);
+        else              wall.position.set(sign * off, CI_PANEL_T / 2 + lip / 2, 0);
+        g.add(wall);
+      };
+      mkSide('z', -1); mkSide('z', 1); mkSide('x', -1); mkSide('x', 1);
+      g.traverse(o => { if (o.isMesh) { o.castShadow = true; o.receiveShadow = true; } });
+      return g;
+    }
+
+    const gridGroup = new THREE.Group();
+    for (let r = 0; r <= ROWS; r++) {
+      const runner = makeClipInRunner(W + 0.02);
+      runner.position.set(0, -CI_DROP_Y, -D / 2 + r * CELL);
+      gridGroup.add(runner);
+    }
+    root.add(gridGroup);
+    animatables.push({ obj: gridGroup, baseY: -CI_DROP_Y, offsetY: 0.08, delay: 0.85, span: 0.12 });
+
+    const suspX = [-W / 2 + CELL * 0.5, W / 2 - CELL * 0.5];
+    const suspList = [];
+    for (const r of [0, ROWS]) {
+      const z = -D / 2 + r * CELL;
+      for (const x of suspX) {
+        const e = makeSuspension('flat');
+        e.position.set(x, 0, z);
+        root.add(e);
+        suspList.push(e);
+        const m = makeMiniHanger();
+        m.position.set(x, -CI_DROP_Y, z);
+        root.add(m);
+        suspList.push(m);
+      }
+    }
+    suspList.forEach((e, i) => {
+      const delay = (i / suspList.length) * 0.40;
+      animatables.push({ obj: e, baseY: e.position.y, offsetY: 0.95, delay, span: 0.35 });
+    });
+
+    const yTopLip = -CI_DROP_Y - CI_TRI_H;
+    const yPanelTop = yTopLip - CI_LIP_H;
+    const yPanelCent = yPanelTop - CI_PANEL_T / 2;
+
+    const cassettesList = [];
+    for (let r = 0; r < ROWS; r++) {
+      for (let c = 0; c < COLS; c++) {
+        if (r === MISSING.r && c === MISSING.c) continue;
+        const cass = makeClipInCassette();
+        const cx = -W / 2 + CELL / 2 + c * CELL;
+        const cz = -D / 2 + CELL / 2 + r * CELL;
+        cass.position.set(cx, yPanelCent, cz);
+        root.add(cass);
+        cassettesList.push({ obj: cass, r, c });
+      }
+    }
+    cassettesList.sort((a, b) => a.c !== b.c ? a.c - b.c : b.r - a.r);
+    cassettesList.forEach((item, i) => {
+      const delay = 0.35 + (i / cassettesList.length) * 0.40;
+      animatables.push({ obj: item.obj, baseY: item.obj.position.y, offsetY: -0.60, delay, span: 0.25 });
+    });
+
+    const firstSusp = suspList.find(o => o.userData && o.userData.plateY !== undefined);
+    const plateY = firstSusp ? firstSusp.userData.plateY : 0.270;
+
+    addLabel(root, 'clipin', 'Кассета Clip-In',
+      new THREE.Vector3(-W / 2 + CELL / 2 + (COLS - 1) * CELL, yPanelTop - CI_PANEL_T, -D / 2 + CELL / 2),
+      new THREE.Vector3(-W / 2 + CELL / 2 + (COLS - 1) * CELL + 0.40, -0.25, -D / 2 + CELL / 2 + 0.40));
+    addLabel(root, 'clipin', 'Стрингер Clip-In (▽)',
+      new THREE.Vector3(-W / 2 + CELL, -CI_DROP_Y - CI_TRI_H / 2, -D / 2),
+      new THREE.Vector3(-0.35, 0.35, 0.25));
+    addLabel(root, 'clipin', 'Мини-подвес',
+      new THREE.Vector3(-W / 2 + CELL * 0.5, -CI_DROP_Y + MINI_LEG_H, -D / 2),
+      new THREE.Vector3(-W / 2 + CELL * 0.5 - 0.45, 0.30, -D / 2 - 0.30));
+    addLabel(root, 'clipin', 'Подвес регулируемый',
+      new THREE.Vector3(suspX[0], plateY, -D / 2),
+      new THREE.Vector3(suspX[0] - 0.32, plateY + 0.05, -D / 2 - 0.18));
+
+    return { root, animatables };
+  }
+
+  function buildHookOn() {
+    const root = new THREE.Group();
+    const animatables = [];
+
+    function makeUProfileTopPlate(length) {
+      const g = new THREE.Group();
+      const W_ = HO_U_W, T_ = HO_U_T;
+      const shape = new THREE.Shape();
+      shape.moveTo(-length/2, -W_/2); shape.lineTo( length/2, -W_/2);
+      shape.lineTo( length/2,  W_/2); shape.lineTo(-length/2,  W_/2); shape.lineTo(-length/2, -W_/2);
+      const holeXs = new Set(), halfLen = length / 2;
+      for (const cx of HO_CROSS_X) {
+        for (let k = 0; ; k++) {
+          const xL = cx - k * HO_U_STEP, xR = cx + k * HO_U_STEP;
+          let added = false;
+          if (xL >= -halfLen + HO_U_HOLE_R) { holeXs.add(parseFloat(xL.toFixed(6))); added = true; }
+          if (xR <=  halfLen - HO_U_HOLE_R) { holeXs.add(parseFloat(xR.toFixed(6))); added = true; }
+          if (!added) break;
+        }
+      }
+      for (const hx of holeXs) {
+        const hole = new THREE.Path();
+        hole.absarc(hx, 0, HO_U_HOLE_R, 0, Math.PI * 2, false);
+        shape.holes.push(hole);
+      }
+      const geo = new THREE.ExtrudeGeometry(shape, { depth: T_, bevelEnabled: false, curveSegments: 16 });
+      geo.rotateX(-Math.PI / 2);
+      g.add(new THREE.Mesh(geo, matGalv));
+      g.traverse(o => { if (o.isMesh) { o.castShadow = true; o.receiveShadow = true; } });
+      return g;
+    }
+    function makeUProfileLeg(length) {
+      const g = new THREE.Group();
+      const leg = new THREE.Mesh(new THREE.BoxGeometry(length, HO_U_H, HO_U_T), matGalv);
+      leg.position.set(0, HO_U_H/2, 0);
+      g.add(leg);
+      g.traverse(o => { if (o.isMesh) { o.castShadow = true; o.receiveShadow = true; } });
+      return g;
+    }
+    function makeUProfile(length) {
+      const g = new THREE.Group();
+      const topPlate = makeUProfileTopPlate(length);
+      topPlate.position.set(0, HO_U_H - HO_U_T/2, 0);
+      g.add(topPlate);
+      const legL = makeUProfileLeg(length); legL.position.set(0, 0, -HO_U_W/2 + HO_U_T/2); g.add(legL);
+      const legR = makeUProfileLeg(length); legR.position.set(0, 0,  HO_U_W/2 - HO_U_T/2); g.add(legR);
+      g.traverse(o => { if (o.isMesh) { o.castShadow = true; o.receiveShadow = true; } });
+      return g;
+    }
+    function makeZProfileTopPlate(length) {
+      const g = new THREE.Group();
+      const TOP_W = HO_Z_TOP_W, T_ = HO_Z_T;
+      const shape = new THREE.Shape();
+      shape.moveTo(-length/2, -TOP_W/2); shape.lineTo( length/2, -TOP_W/2);
+      shape.lineTo( length/2,  TOP_W/2); shape.lineTo(-length/2,  TOP_W/2); shape.lineTo(-length/2, -TOP_W/2);
+      const holeZs = new Set(), halfLen = length / 2;
+      for (const cz of HO_U_Z) {
+        for (let k = 0; ; k++) {
+          const zA = cz - k * HO_Z_STEP, zB = cz + k * HO_Z_STEP;
+          let added = false;
+          if (zA >= -halfLen + HO_Z_HOLE_R) { holeZs.add(parseFloat(zA.toFixed(6))); added = true; }
+          if (zB <=  halfLen - HO_Z_HOLE_R) { holeZs.add(parseFloat(zB.toFixed(6))); added = true; }
+          if (!added) break;
+        }
+      }
+      for (const hz of holeZs) {
+        const hole = new THREE.Path();
+        hole.absarc(hz, 0, HO_Z_HOLE_R, 0, Math.PI * 2, false);
+        shape.holes.push(hole);
+      }
+      const geo = new THREE.ExtrudeGeometry(shape, { depth: T_, bevelEnabled: false, curveSegments: 16 });
+      geo.rotateX(-Math.PI / 2);
+      geo.rotateY(Math.PI / 2);
+      g.add(new THREE.Mesh(geo, matGalv));
+      g.traverse(o => { if (o.isMesh) { o.castShadow = true; o.receiveShadow = true; } });
+      return g;
+    }
+    function makeZProfile(length) {
+      const g = new THREE.Group();
+      const T_ = HO_Z_T, H_ = HO_Z_H, TOP_W = HO_Z_TOP_W, BOT_W = HO_Z_BOT_W;
+      const wall = new THREE.Mesh(new THREE.BoxGeometry(T_, H_, length), matGalv);
+      wall.position.set(0, H_/2, 0); g.add(wall);
+      const topPlate = makeZProfileTopPlate(length);
+      topPlate.position.set(TOP_W/2 - T_/2, H_ - T_/2, 0); g.add(topPlate);
+      const bot = new THREE.Mesh(new THREE.BoxGeometry(BOT_W, T_, length), matGalv);
+      bot.position.set(-BOT_W/2 + T_/2, T_/2, 0); g.add(bot);
+      const hook = new THREE.Mesh(new THREE.BoxGeometry(T_, HO_Z_HOOK_H, length), matGalv);
+      hook.position.set(-BOT_W + T_/2, T_ + HO_Z_HOOK_H/2, 0); g.add(hook);
+      g.traverse(o => { if (o.isMesh) { o.castShadow = true; o.receiveShadow = true; } });
+      return g;
+    }
+    function makeBoltWithNut(gripLength, headSeatLocalY, nutAssembledY, nutExplodedY) {
+      const g = new THREE.Group();
+      const rod = new THREE.Mesh(new THREE.CylinderGeometry(0.0038, 0.0038, gripLength, 14), matBolt);
+      rod.position.y = 0; rod.castShadow = true; g.add(rod);
+      const headH = 0.005;
+      const head = new THREE.Mesh(new THREE.CylinderGeometry(0.0068, 0.0068, headH, 6), matBolt);
+      head.position.y = headSeatLocalY + headH / 2; head.castShadow = true; g.add(head);
+      const headCap = new THREE.Mesh(new THREE.CylinderGeometry(0.0058, 0.0068, 0.0012, 6), matBolt);
+      headCap.position.y = headSeatLocalY + headH + 0.0006; headCap.castShadow = true; g.add(headCap);
+      const nut = new THREE.Group();
+      const nutH = 0.005;
+      const nutBody = new THREE.Mesh(new THREE.CylinderGeometry(0.0068, 0.0068, nutH, 6), matBolt);
+      nutBody.castShadow = true; nut.add(nutBody);
+      const nutChamfer = new THREE.Mesh(new THREE.CylinderGeometry(0.0058, 0.0068, 0.0012, 6), matBolt);
+      nutChamfer.position.y = -nutH / 2 - 0.0006; nutChamfer.castShadow = true; nut.add(nutChamfer);
+      const nutHole = new THREE.Mesh(new THREE.CylinderGeometry(0.0039, 0.0039, nutH + 0.0002, 12), matSlot);
+      nut.add(nutHole);
+      nut.position.y = nutExplodedY; g.add(nut);
+      g.userData.nut = nut;
+      g.userData.nutAssembledY = nutAssembledY;
+      g.userData.nutExplodedY = nutExplodedY;
+      return g;
+    }
+    function makeNewHoCassette() {
+      const g = new THREE.Group();
+      const S_ = HO_PANEL_SZ, T_ = HO_PANEL_T, H_ = HO_LIP_H, L_ = HO_LIP_L, F_ = HO_LIP_F;
+      const CUT_LEN = HO_CUT_LEN, CUT_DEPTH = HO_CUT_DEPTH;
+      const panel = new THREE.Mesh(new THREE.BoxGeometry(S_, T_, S_), matHoPanel);
+      g.add(panel);
+      const makeSimpleEdgeX = (zSign) => {
+        const eg = new THREE.Group();
+        const zPos = zSign * (S_ / 2 + T_ / 2);
+        const lowerH = H_ - CUT_DEPTH;
+        const lower = new THREE.Mesh(new THREE.BoxGeometry(S_ + 2 * T_, lowerH, T_), matHoPanel);
+        lower.position.set(0, T_ / 2 + lowerH / 2, zPos); eg.add(lower);
+        const upperLen = (S_ + 2 * T_) - 2 * CUT_LEN;
+        const upper = new THREE.Mesh(new THREE.BoxGeometry(upperLen, CUT_DEPTH, T_), matHoPanel);
+        upper.position.set(0, T_ / 2 + lowerH + CUT_DEPTH / 2, zPos); eg.add(upper);
+        return eg;
+      };
+      g.add(makeSimpleEdgeX(-1)); g.add(makeSimpleEdgeX(+1));
+      const makeBentEdgeZ = (signX) => {
+        const eg = new THREE.Group();
+        const shape = new THREE.Shape();
+        shape.moveTo(0, 0); shape.lineTo(0, H_); shape.lineTo(L_, H_); shape.lineTo(L_, H_ - F_);
+        shape.lineTo(L_ - T_, H_ - F_); shape.lineTo(L_ - T_, H_ - T_); shape.lineTo(T_, H_ - T_);
+        shape.lineTo(T_, 0); shape.lineTo(0, 0);
+        const geo = new THREE.ExtrudeGeometry(shape, { depth: S_, bevelEnabled: false, curveSegments: 1 });
+        geo.translate(0, 0, -S_ / 2);
+        eg.add(new THREE.Mesh(geo, matHoPanel));
+        eg.position.set(signX * (S_ / 2), T_ / 2, 0);
+        return eg;
+      };
+      g.add(makeBentEdgeZ(-1)); g.add(makeBentEdgeZ(+1));
+      g.traverse(o => { if (o.isMesh) { o.castShadow = true; o.receiveShadow = true; } });
+      return g;
+    }
+
+    const zGroup = new THREE.Group();
+    for (const x of HO_Z_X) { const prof = makeZProfile(D + 0.04); prof.position.set(x, 0, 0); zGroup.add(prof); }
+    root.add(zGroup);
+    const uGroup = new THREE.Group();
+    for (const z of HO_U_Z) { const prof = makeUProfile(W + 0.04); prof.position.set(0, HO_Z_H, z); uGroup.add(prof); }
+    root.add(uGroup);
+
+    const boltHeadSeatY = HO_Z_H + HO_U_H;
+    const boltBottomSeatY = HO_Z_T;
+    const boltGripLength = boltHeadSeatY - boltBottomSeatY;
+    const boltCenterY = (boltHeadSeatY + boltBottomSeatY) / 2;
+    const headSeatLocalY = boltGripLength / 2;
+    const nutH = 0.005;
+    const nutAssembledWorldY = (HO_Z_H - HO_Z_T) - nutH / 2;
+    const nutAssembledLocalY = nutAssembledWorldY - boltCenterY;
+    const nutExplodedWorldY = nutAssembledWorldY - 0.10;
+    const nutExplodedLocalY = nutExplodedWorldY - boltCenterY;
+
+    const boltsGroup = new THREE.Group();
+    const boltList = [];
+    for (const x of HO_CROSS_X) {
+      for (const z of HO_U_Z) {
+        const b = makeBoltWithNut(boltGripLength, headSeatLocalY, nutAssembledLocalY, nutExplodedLocalY);
+        b.position.set(x, boltCenterY, z);
+        boltsGroup.add(b);
+        boltList.push(b);
+      }
+    }
+    root.add(boltsGroup);
+
+    boltList.forEach((b, i) => {
+      const delay = 0.15 + (i / boltList.length) * 0.25;
+      animatables.push({
+        obj: b, baseY: boltCenterY, offsetY: +0.50, delay, span: 0.30,
+        custom: (eased) => {
+          const nut = b.userData.nut;
+          const yA = b.userData.nutAssembledY, yE = b.userData.nutExplodedY;
+          nut.position.y = yA + (yE - yA) * eased;
+          nut.rotation.y = eased * Math.PI * 2 * 3;
+        }
+      });
+    });
+
+    const suspX = [-W/2 + CELL/2, W/2 - CELL/2];
+    const suspList = [];
+    for (const z of HO_U_Z) {
+      for (const x of suspX) {
+        const e = makeSuspension('flat');
+        e.position.set(x, HO_Z_H + HO_U_H, z);
+        root.add(e);
+        suspList.push(e);
+      }
+    }
+    suspList.forEach((e, i) => {
+      const delay = (i / suspList.length) * 0.40;
+      animatables.push({ obj: e, baseY: HO_Z_H + HO_U_H, offsetY: 0.95, delay, span: 0.35 });
+    });
+
+    const yCassette = HO_Z_H - HO_PANEL_T / 2 - HO_LIP_H + HO_LIP_F - 0.026;
+    const panelsList = [];
+    for (let r = 0; r < ROWS; r++) {
+      for (let c = 0; c < COLS; c++) {
+        if (r === MISSING.r && c === MISSING.c) continue;
+        const panel = makeNewHoCassette();
+        const cx = -W/2 + CELL/2 + c*CELL;
+        const cz = -D/2 + CELL/2 + r*CELL;
+        panel.position.set(cx, yCassette, cz);
+        root.add(panel);
+        panelsList.push({ obj: panel, r, c });
+      }
+    }
+    panelsList.sort((a,b) => a.c !== b.c ? a.c - b.c : b.r - a.r);
+    panelsList.forEach((item, i) => {
+      const delay = 0.35 + (i / panelsList.length) * 0.40;
+      animatables.push({ obj: item.obj, baseY: item.obj.position.y, offsetY: -0.60, delay, span: 0.25 });
+    });
+
+    const plateY = suspList[0].userData.plateY || 0.270;
+
+    addLabel(root, 'hookon', 'Панель Hook On',
+      new THREE.Vector3(-W/2 + CELL/2 + (COLS-1)*CELL, yCassette, -D/2 + CELL/2),
+      new THREE.Vector3(-W/2 + CELL/2 + (COLS-1)*CELL + 0.40, 0.10, -D/2 + CELL/2 + 0.40));
+    addLabel(root, 'hookon', 'Z-профиль',
+      new THREE.Vector3(HO_Z_X[0], HO_Z_H / 2, -D/2 + 0.4),
+      new THREE.Vector3(-0.40, 0.30, 0.30));
+    addLabel(root, 'hookon', 'U-профиль',
+      new THREE.Vector3(-0.2, HO_Z_H + HO_U_H, HO_U_Z[0]),
+      new THREE.Vector3(-0.45, 0.60, HO_U_Z[0] - 0.30));
+    addLabel(root, 'hookon', 'Подвес регулируемый',
+      new THREE.Vector3(suspX[0], HO_Z_H + HO_U_H + plateY, -D/2),
+      new THREE.Vector3(suspX[0] - 0.50, HO_Z_H + HO_U_H + plateY + 0.15, -D/2 - 0.20));
+    addLabel(root, 'hookon', 'Болт+гайка',
+      new THREE.Vector3(HO_CROSS_X[0], boltHeadSeatY, HO_U_Z[0]),
+      new THREE.Vector3(HO_CROSS_X[0] + 0.30, 0.30, HO_U_Z[0] + 0.30));
+
+    return { root, animatables };
+  }
+
+  const MODELS = { layin: buildLayIn(), clipin: buildClipIn(), hookon: buildHookOn() };
+  let activeModel = 'layin';
+
+  let labelsVisible = false;
+  let labelsReady = false;
+
+  function applyLabelsVisibility() {
+    const shouldShow = labelsVisible && labelsReady;
+    for (const item of allLabelEls) {
+      item.el.style.opacity = (shouldShow && item.modelKey === activeModel) ? '1' : '0';
+    }
+    for (const key in allLabelLines) {
+      for (const line of allLabelLines[key]) {
+        line.userData.targetOpacity = (shouldShow && key === activeModel) ? 0.45 : 0;
+      }
+    }
+  }
+
+  for (const key in MODELS) {
+    MODELS[key].root.visible = (key === activeModel);
+    scene.add(MODELS[key].root);
+  }
+  applyLabelsVisibility();
+
+  let autoCycleEnabled = true;
+  let forcedState = null;
+  let cycleT = 0;
+  let explodeCurrent = 0;
+
+  function injectUI() {
+    if (document.getElementById('cubica-ui')) return;
+    const style = document.createElement('style');
+    style.textContent = `
+      #cubica-ui { position: absolute; left: 0; right: 0; top: 0; bottom: 0;
+        display: flex; flex-direction: column; align-items: center; justify-content: space-between;
+        z-index: 5; pointer-events: none; user-select: none;
+        font-family: -apple-system, "Segoe UI", Roboto, Arial, sans-serif;
+        padding: 10px 10px 14px 10px; }
+      #cubica-controls { display: flex; border-radius: 2px; overflow: hidden; box-shadow: 0 4px 18px rgba(0,0,0,.12); pointer-events: auto; max-width: 100%; background: rgba(255,255,255,0.85); flex-wrap: wrap; justify-content: center; }
+      #cubica-tabs { display: flex; background: #fff; border-radius: 2px; overflow: hidden; box-shadow: 0 -4px 18px rgba(0,0,0,.10); pointer-events: auto; width: 100%; max-width: 860px; flex-wrap: wrap; justify-content: center; }
+      #cubica-tabs button, #cubica-controls button { all: unset; cursor: pointer; font-weight: 500; color: #4a4f55; background: #fff; border-right: 1px solid #d8d5d0; border-bottom: 1px solid #d8d5d0; transition: background .18s, color .18s; white-space: nowrap; text-align: center; box-sizing: border-box; }
+      #cubica-tabs button { flex: 1 1 33%; padding: 9px 16px; font-size: 13px; }
+      #cubica-controls button { flex: 1 1 auto; padding: 6px 12px; font-size: 11px; color:#5a6068; }
+      #cubica-tabs button:last-child, #cubica-controls button:last-child { border-right: 0; }
+      #cubica-tabs button:hover, #cubica-controls button:hover { background: #f3f1ed; }
+      #cubica-tabs button.active { background: #9c1c1c; color: #fff; font-weight: 600; }
+      #cubica-controls button.active { background: #e3d9cf; color: #9c1c1c; font-weight: 600; }
+      #cubica-controls button[data-act="labels"] { border-left: 1px solid #d8d5d0; color: #9c1c1c; font-weight: 600; }
+
+      @media (max-width: 768px) {
+        #cubica-ui { padding: 6px 6px 10px 6px; }
+        #cubica-tabs button { padding: 8px 10px; font-size: 12px; flex: 1 1 33%; }
+        #cubica-controls button { padding: 6px 8px; font-size: 10px; }
+      }
+      @media (max-width: 480px) {
+        #cubica-ui { padding: 5px 4px 8px 4px; }
+        #cubica-tabs { max-width: 100%; }
+        #cubica-tabs button { flex: 1 1 100%; padding: 7px 8px; font-size: 11px; }
+        #cubica-controls button { flex: 1 1 33%; padding: 5px 4px; font-size: 10px; }
+      }
+    `;
+    document.head.appendChild(style);
+    const ui = document.createElement('div');
+    ui.id = 'cubica-ui';
+    ui.innerHTML = `
+      <div id="cubica-tabs">
+        <button data-sys="layin" class="active">Открытая Lay-In</button>
+        <button data-sys="clipin">Закрытая Clip-In</button>
+        <button data-sys="hookon">Система Hook On</button>
+      </div>
+      <div id="cubica-controls">
+        <button data-act="assemble">Собрать</button>
+        <button data-act="explode">Разобрать</button>
+        <button data-act="pause" class="active">Пауза</button>
+        <button data-act="play">Play</button>
+        <button data-act="labels">Названия</button>
+      </div>
+    `;
+    container.appendChild(ui);
+
+    const btnLabels = ui.querySelector('#cubica-controls button[data-act="labels"]');
+    const btnA = ui.querySelector('#cubica-controls button[data-act="assemble"]');
+    const btnE = ui.querySelector('#cubica-controls button[data-act="explode"]');
+    const btnP = ui.querySelector('#cubica-controls button[data-act="pause"]');
+    const btnPlay = ui.querySelector('#cubica-controls button[data-act="play"]');
+
+    function hideLabelsThen(callback, delayMs = 400) {
+      if (!labelsVisible && !labelsReady) { callback(); return; }
+      labelsVisible = false;
+      labelsReady = false;
+      btnLabels.classList.remove('active');
+      applyLabelsVisibility();
+      setTimeout(callback, delayMs);
+    }
+
+    btnLabels.addEventListener('click', (e) => {
+      e.stopPropagation();
+      if (!labelsVisible) {
+        labelsVisible = true;
+        labelsReady = false;
+        btnLabels.classList.add('active');
+        autoCycleEnabled = false;
+        forcedState = 'assembled';
+        btnA.classList.add('active'); btnE.classList.remove('active');
+        btnP.classList.remove('active'); btnPlay.classList.remove('active');
+        setTimeout(() => {
+          if (labelsVisible) {
+            labelsReady = true;
+            applyLabelsVisibility();
+          }
+        }, 900);
+      } else {
+        labelsVisible = false;
+        labelsReady = false;
+        btnLabels.classList.remove('active');
+        applyLabelsVisibility();
+        setTimeout(() => {
+          if (!labelsVisible) {
+            forcedState = null;
+            autoCycleEnabled = true;
+            cycleT = 0;
+            btnPlay.classList.add('active'); btnP.classList.remove('active');
+            btnA.classList.remove('active'); btnE.classList.remove('active');
+          }
+        }, 400);
+      }
+    });
+
+    ui.querySelectorAll('#cubica-tabs button').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const name = btn.dataset.sys;
+        if (name === activeModel) return;
+        activeModel = name;
+        for (const key in MODELS) {
+          MODELS[key].root.visible = (key === activeModel);
+        }
+        applyLabelsVisibility();
+        ui.querySelectorAll('#cubica-tabs button').forEach(b => {
+          b.classList.toggle('active', b.dataset.sys === name);
+        });
+      });
+    });
+
+    function doAssemble() {
+      autoCycleEnabled = false; forcedState = 'assembled';
+      btnA.classList.add('active'); btnE.classList.remove('active'); btnP.classList.remove('active'); btnPlay.classList.remove('active');
+    }
+    function doExplode() {
+      autoCycleEnabled = false; forcedState = 'exploded';
+      btnE.classList.add('active'); btnA.classList.remove('active'); btnP.classList.remove('active'); btnPlay.classList.remove('active');
+    }
+    function doPause() {
+      const isPaused = btnP.classList.contains('active');
+      if (isPaused) {
+        btnP.classList.remove('active'); autoCycleEnabled = true; forcedState = null;
+        btnA.classList.remove('active'); btnE.classList.remove('active'); btnPlay.classList.remove('active');
+      } else {
+        btnP.classList.add('active'); autoCycleEnabled = false; forcedState = null;
+        btnA.classList.remove('active'); btnE.classList.remove('active'); btnPlay.classList.remove('active');
+      }
+    }
+    function doPlay() {
+      btnPlay.classList.add('active'); btnP.classList.remove('active');
+      autoCycleEnabled = true; forcedState = null;
+      btnA.classList.remove('active'); btnE.classList.remove('active');
+    }
+
+    ui.querySelectorAll('#cubica-controls button').forEach(btn => {
+      if (btn.dataset.act === 'labels') return;
+      btn.addEventListener('click', () => {
+        const act = btn.dataset.act;
+        if (act === 'assemble') hideLabelsThen(doAssemble);
+        else if (act === 'explode') hideLabelsThen(doExplode);
+        else if (act === 'pause') hideLabelsThen(doPause);
+        else if (act === 'play') hideLabelsThen(doPlay);
+      });
+    });
+  }
+  injectUI();
+
+  function onResize() {
+    const w = container.clientWidth, h = container.clientHeight;
+    if (w === 0 || h === 0) return;
+    renderer.setSize(w, h, false);
+    labelRenderer.setSize(w, h, false);
+    camera.aspect = w / h;
+    const vFov = camera.fov * Math.PI / 180;
+    const hFov = 2 * Math.atan(Math.tan(vFov / 2) * camera.aspect);
+    const distV = MODEL_RADIUS / Math.sin(vFov / 2);
+    const distH = MODEL_RADIUS / Math.sin(hFov / 2);
+    const dist = Math.max(distV, distH) * 1.05 * ZOOM_FACTOR;
+    let dir = camera.position.clone().sub(controls.target);
+    if (dir.lengthSq() < 0.0001) dir = VIEW_DIR.clone(); else dir.normalize();
+    controls.target.copy(MODEL_CENTER);
+    camera.position.copy(MODEL_CENTER).addScaledVector(dir, dist);
+    camera.lookAt(MODEL_CENTER);
+    camera.updateProjectionMatrix();
+  }
+  window.addEventListener('resize', onResize);
+  window.addEventListener('orientationchange', () => setTimeout(onResize, 200));
+  if (typeof ResizeObserver !== 'undefined') { const ro = new ResizeObserver(() => onResize()); ro.observe(container); }
+  setTimeout(onResize, 100); setTimeout(onResize, 500); setTimeout(onResize, 1500); onResize();
+
+  const fsBtn = document.getElementById('cubica-fs-btn');
+  const fsPath = document.getElementById('cubica-fs-path');
+  const ICON_EXPAND = 'M4 9V5a1 1 0 0 1 1-1h4 M20 9V5a1 1 0 0 0-1-1h-4 M4 15v4a1 1 0 0 0 1 1h4 M20 15v4a1 1 0 0 1-1 1h-4';
+  const ICON_COLLAPSE = 'M9 4v4a1 1 0 0 1-1 1H4 M15 4v4a1 1 0 0 0 1 1h4 M9 20v-4a1 1 0 0 0-1-1H4 M15 20v-4a1 1 0 0 1 1-1h4';
+  function setIcon(isFull) { if (fsPath) fsPath.setAttribute('d', isFull ? ICON_COLLAPSE : ICON_EXPAND); if (fsBtn) fsBtn.setAttribute('title', isFull ? 'Свернуть' : 'Во весь экран'); }
+  function enterFs() {
+    const req = container.requestFullscreen || container.webkitRequestFullscreen || container.msRequestFullscreen;
+    if (req) Promise.resolve(req.call(container)).catch(() => { container.classList.add('cubica-fallback-fs'); document.body.style.overflow = 'hidden'; setTimeout(onResize, 50); setIcon(true); });
+    else { container.classList.add('cubica-fallback-fs'); document.body.style.overflow = 'hidden'; setTimeout(onResize, 50); setIcon(true); }
+  }
+  function exitFs() {
+    const exit = document.exitFullscreen || document.webkitExitFullscreen || document.msExitFullscreen;
+    if (document.fullscreenElement || document.webkitFullscreenElement) { if (exit) exit.call(document); }
+    container.classList.remove('cubica-fallback-fs'); document.body.style.overflow = '';
+    setTimeout(onResize, 50); setIcon(false);
+  }
+  function isFull() { return document.fullscreenElement === container || document.webkitFullscreenElement === container || container.classList.contains('cubica-fallback-fs'); }
+  if (fsBtn) fsBtn.addEventListener('click', () => isFull() ? exitFs() : enterFs());
+  ['fullscreenchange','webkitfullscreenchange','msfullscreenchange'].forEach(ev => {
+    document.addEventListener(ev, () => {
+      const full = document.fullscreenElement === container || document.webkitFullscreenElement === container;
+      setIcon(full); setTimeout(onResize, 100);
+    });
+  });
+  document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && container.classList.contains('cubica-fallback-fs')) exitFs(); });
+
+  let inView = true;
+  const io = new IntersectionObserver((entries) => { inView = entries[0].isIntersecting; }, { threshold: 0 });
+  io.observe(container);
+
+  const T_HOLD_ASM = 3.0, T_EXPLODE = 3.5, T_HOLD_EXP = 2.5, T_ASSEMBLE = 3.5, T_HOLD_END = 1.5;
+  const CYCLE_DUR = T_HOLD_ASM + T_EXPLODE + T_HOLD_EXP + T_ASSEMBLE + T_HOLD_END;
+
+  function updateTimeline(dt) {
+    if (forcedState === 'assembled') {
+      explodeCurrent += (0 - explodeCurrent) * Math.min(1, dt * 3);
+      if (Math.abs(explodeCurrent) < 0.002) explodeCurrent = 0;
+      return;
+    }
+    if (forcedState === 'exploded') {
+      explodeCurrent += (1 - explodeCurrent) * Math.min(1, dt * 3);
+      if (Math.abs(1 - explodeCurrent) < 0.002) explodeCurrent = 1;
+      return;
+    }
+    if (!autoCycleEnabled) return;
+    cycleT = (cycleT + dt) % CYCLE_DUR;
+    let target;
+    if (cycleT < T_HOLD_ASM) target = 0;
+    else if (cycleT < T_HOLD_ASM + T_EXPLODE) target = (cycleT - T_HOLD_ASM) / T_EXPLODE;
+    else if (cycleT < T_HOLD_ASM + T_EXPLODE + T_HOLD_EXP) target = 1;
+    else if (cycleT < T_HOLD_ASM + T_EXPLODE + T_HOLD_EXP + T_ASSEMBLE) target = 1 - (cycleT - T_HOLD_ASM - T_EXPLODE - T_HOLD_EXP) / T_ASSEMBLE;
+    else target = 0;
+    explodeCurrent = target;
+  }
+
+  const clock = new THREE.Clock();
+  function animate() {
+    requestAnimationFrame(animate);
+    if (!inView || document.hidden) { clock.getDelta(); return; }
+    const dt = clock.getDelta();
+    updateTimeline(dt);
+    const inst = MODELS[activeModel];
+    for (const p of inst.animatables) {
+      const raw = (explodeCurrent - p.delay) / p.span;
+      const t = Math.max(0, Math.min(1, raw));
+      const eased = easeInOutCubic(t);
+      p.obj.position.y = p.baseY + p.offsetY * eased;
+      if (p.custom) p.custom(eased);
+    }
+
+    for (const key in allLabelLines) {
+      for (const line of allLabelLines[key]) {
+        const target = line.userData.targetOpacity || 0;
+        const cur = line.material.opacity;
+        if (Math.abs(cur - target) > 0.002) {
+          line.material.opacity = cur + (target - cur) * Math.min(1, dt * 6);
+        } else if (cur !== target) {
+          line.material.opacity = target;
+        }
+        line.visible = line.material.opacity > 0.003;
+      }
+    }
+
+    controls.update();
+    renderer.render(scene, camera);
+    labelRenderer.render(scene, camera);
+  }
+  animate();
+}
+</script>
+</body>
+</html>
