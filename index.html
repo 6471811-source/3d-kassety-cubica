@@ -1,29 +1,15 @@
+
 <!DOCTYPE html>
 <html lang="ru">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Cubica 3D</title>
 <style>
-  * { box-sizing: border-box; margin: 0; padding: 0; }
-  html, body {
-    width: 100%; height: 100%;
-    margin: 0; padding: 0;
-    background: #f4f2ee;
-    overflow: hidden;
-  }
-  #cubica-3d {
-    position: absolute; inset: 0;
-    width: 100%; height: 100%;
-    margin: 0; padding: 0;
-    overflow: hidden;
-    background: #f4f2ee;
-    touch-action: none;
-  }
-  #cubica-3d.cubica-fallback-fs {
-    position: fixed !important; inset: 0 !important; z-index: 99999;
-    height: 100vh !important; width: 100vw !important;
-  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; height: 100%; background: #f4f2ee; overflow: hidden; }
+  #cubica-3d { position: relative; width: 100%; height: 100vh; max-width: 1200px; margin: 0 auto; overflow: hidden; background: #f4f2ee; }
+  #cubica-3d.cubica-fallback-fs { position: fixed !important; inset: 0 !important; z-index: 99999; max-width: none; height: 100vh; width: 100vw; }
   .label-3d {
     color: #2a2f35;
     font-family: -apple-system, "Segoe UI", Roboto, Arial, sans-serif;
@@ -39,22 +25,27 @@
     opacity: 0;
     transition: opacity .35s ease;
   }
-  #cubica-fs-btn {
-    position: absolute; top: 14px; right: 14px;
-    width: 38px; height: 38px; border-radius: 4px;
-    border: 1px solid rgba(42,47,53,0.15);
-    background: rgba(255,255,255,0.92); color: #2a2f35;
-    cursor: pointer; display: flex; align-items: center; justify-content: center;
-    z-index: 6; padding: 0;
-  }
+  #cubica-fs-btn { position: absolute; top: 14px; right: 14px; width: 38px; height: 38px; border-radius: 4px; border: 1px solid rgba(42,47,53,0.15); background: rgba(255,255,255,0.92); color: #2a2f35; cursor: pointer; display: flex; align-items: center; justify-content: center; z-index: 5; padding: 0; }
   #cubica-fs-btn:hover { background: #fff; }
   #cubica-fs-btn svg { width: 18px; height: 18px; }
+
+  /* === ФОНОВЫЙ ВОДЯНОЙ ЗНАК ПО ДИАГОНАЛИ — РАВНОМЕРНО, БЕЗ ОБРЕЗКОВ === */
   .cubica-watermark-bg {
-    position: absolute; top: -50%; left: -50%; width: 200%; height: 200%;
-    z-index: 1; pointer-events: none; user-select: none;
-    transform: rotate(-30deg); transform-origin: center center; opacity: 0.15;
+    position: absolute;
+    top: -50%;
+    left: -50%;
+    width: 200%;
+    height: 200%;
+    z-index: 1;
+    pointer-events: none;
+    user-select: none;
+    transform: rotate(-30deg);
+    transform-origin: center center;
+    opacity: 0.15;
     background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='220' height='120' viewBox='0 0 220 120'><text x='10' y='70' font-family='-apple-system,Segoe UI,Roboto,Arial,sans-serif' font-size='16' font-weight='600' fill='%239c1c1c'>Cubica.by</text></svg>");
-    background-repeat: repeat; background-size: 220px 120px;
+    background-repeat: repeat;
+    background-size: 220px 120px;
+    background-position: 0 0;
   }
 </style>
 </head>
@@ -68,100 +59,102 @@
   </button>
 </div>
 
-<!-- Three.js UMD-сборки версии 0.148.0 — последняя, где есть three.min.js -->
-<script src="https://cdn.jsdelivr.net/npm/three@0.148.0/build/three.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/three@0.148.0/examples/js/controls/OrbitControls.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/three@0.148.0/examples/js/renderers/CSS2DRenderer.js"></script>
-
-<script>
-(function waitForThree() {
-  if (typeof THREE === 'undefined' || !THREE.OrbitControls || !THREE.CSS2DRenderer) {
-    return setTimeout(waitForThree, 100);
+<script type="importmap">
+{
+  "imports": {
+    "three": "https://unpkg.com/three@0.160.0/build/three.module.js",
+    "three/addons/": "https://unpkg.com/three@0.160.0/examples/jsm/"
   }
-  var OrbitControls = THREE.OrbitControls;
-  var CSS2DRenderer = THREE.CSS2DRenderer;
-  var CSS2DObject = THREE.CSS2DObject;
+}
+</script>
 
-  console.log('[Cubica 3D] v12.30 umd-0.148');
+<script type="module">
+import * as THREE from 'three';
+import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+import { CSS2DRenderer, CSS2DObject } from 'three/addons/renderers/CSS2DRenderer.js';
 
-  var container = document.getElementById('cubica-3d');
+console.log('[Cubica 3D] v12.10 — background watermark v2');
+startCubica3D();
+
+function startCubica3D() {
+  const container = document.getElementById('cubica-3d');
   if (!container) { console.error('[Cubica 3D] Не найден #cubica-3d'); return; }
 
-  var CELL = 0.6, COLS = 3, ROWS = 2;
-  var W = COLS * CELL, D = ROWS * CELL;
+  const CELL = 0.6, COLS = 3, ROWS = 2;
+  const W = COLS * CELL, D = ROWS * CELL;
 
-  var FLANGE_W = 0.024, FLANGE_T = 0.0020;
-  var WEB_H = 0.038, WEB_T = 0.0022;
-  var BULB_R = 0.0040;
-  var BULB_TOP = FLANGE_T + WEB_H + 2 * BULB_R;
-  var BULB_CY = FLANGE_T + WEB_H + BULB_R;
+  const FLANGE_W = 0.024, FLANGE_T = 0.0020;
+  const WEB_H    = 0.038, WEB_T    = 0.0022;
+  const BULB_R   = 0.0040;
+  const BULB_TOP = FLANGE_T + WEB_H + 2 * BULB_R;
+  const BULB_CY  = FLANGE_T + WEB_H + BULB_R;
 
-  var PANEL_SIZE = 0.574, PANEL_T = 0.010;
-  var DROP = 0.012, EDGE_T = 0.0018;
-  var LEDGE_W = 0.006, LEDGE_T = 0.0016;
+  const PANEL_SIZE = 0.574, PANEL_T = 0.010;
+  const DROP = 0.012, EDGE_T = 0.0018;
+  const LEDGE_W = 0.006, LEDGE_T = 0.0016;
 
-  var CI_SIDE = 0.030;
-  var CI_TRI_H = CI_SIDE * Math.sqrt(3) / 2;
-  var CI_HOLLOW = 0.94;
-  var CI_DROP_Y = 0.005;
-  var CI_EDGE_T = 0.0016;
-  var CI_LIP_H = 0.015;
-  var CI_PANEL_T = 0.008;
-  var CI_PANEL_SZ = CELL - 2 * CI_EDGE_T;
+  const CI_SIDE = 0.030;
+  const CI_TRI_H = CI_SIDE * Math.sqrt(3) / 2;
+  const CI_HOLLOW = 0.94;
+  const CI_DROP_Y = 0.005;
+  const CI_EDGE_T = 0.0016;
+  const CI_LIP_H = 0.015;
+  const CI_PANEL_T = 0.008;
+  const CI_PANEL_SZ = CELL - 2 * CI_EDGE_T;
 
-  var MINI_T = 0.0015;
-  var MINI_PLATE_W = 0.020, MINI_PLATE_D = 0.011, MINI_PLATE_H = 0.0030;
-  var MINI_LEG_W = 0.014, MINI_LEG_H = 0.018, MINI_HOLE_R = 0.0022;
+  const MINI_T = 0.0015;
+  const MINI_PLATE_W = 0.020, MINI_PLATE_D = 0.011, MINI_PLATE_H = 0.0030;
+  const MINI_LEG_W = 0.014, MINI_LEG_H = 0.018, MINI_HOLE_R = 0.0022;
 
-  var HO_U_W = 0.040, HO_U_H = 0.030, HO_U_T = 0.0015;
-  var HO_U_HOLE_R = 0.004, HO_U_STEP = 0.050;
-  var HO_Z_TOP_W = 0.040, HO_Z_BOT_W = 0.008, HO_Z_H = 0.030, HO_Z_T = 0.0015;
-  var HO_Z_HOOK_H = 0.005, HO_Z_HOLE_R = 0.004, HO_Z_STEP = 0.050;
-  var HO_PANEL_SZ = 0.600, HO_PANEL_T = 0.0005;
-  var HO_LIP_H = 0.015, HO_LIP_L = 0.010, HO_LIP_F = 0.005;
-  var HO_CUT_LEN = 0.020, HO_CUT_DEPTH = 0.010;
+  const HO_U_W = 0.040, HO_U_H = 0.030, HO_U_T = 0.0015;
+  const HO_U_HOLE_R = 0.004, HO_U_STEP = 0.050;
+  const HO_Z_TOP_W = 0.040, HO_Z_BOT_W = 0.008, HO_Z_H = 0.030, HO_Z_T = 0.0015;
+  const HO_Z_HOOK_H = 0.005, HO_Z_HOLE_R = 0.004, HO_Z_STEP = 0.050;
+  const HO_PANEL_SZ = 0.600, HO_PANEL_T = 0.0005;
+  const HO_LIP_H = 0.015, HO_LIP_L = 0.010, HO_LIP_F = 0.005;
+  const HO_CUT_LEN = 0.020, HO_CUT_DEPTH = 0.010;
 
-  var HO_Z_X = [-CELL/2 + 0.010, CELL/2 + 0.010];
-  var HO_U_Z = [-CELL/2, CELL/2];
-  var HO_Z_TOP_OFFSET = HO_Z_TOP_W / 2 - HO_Z_T / 2;
-  var HO_CROSS_X = HO_Z_X.map(function(x){ return x + HO_Z_TOP_OFFSET; });
+  const HO_Z_X = [-CELL/2 + 0.010, CELL/2 + 0.010];
+  const HO_U_Z = [-CELL/2, CELL/2];
+  const HO_Z_TOP_OFFSET = HO_Z_TOP_W / 2 - HO_Z_T / 2;
+  const HO_CROSS_X = HO_Z_X.map(x => x + HO_Z_TOP_OFFSET);
 
-  var MISSING = { r: ROWS - 1, c: COLS - 1 };
+  const MISSING = { r: ROWS - 1, c: COLS - 1 };
 
-  var isMobile = window.innerWidth <= 768;
-  var isSmall  = window.innerWidth <= 480;
-  var MODEL_RADIUS = 1.05;
+  const isMobile = window.innerWidth <= 768;
+  const isSmall  = window.innerWidth <= 480;
+  let MODEL_RADIUS = 1.05;
   if (isMobile) MODEL_RADIUS = 1.25;
   if (isSmall)  MODEL_RADIUS = 1.35;
 
-  var scene = new THREE.Scene();
+  const scene = new THREE.Scene();
   scene.background = null;
   scene.fog = new THREE.Fog(0xf4f2ee, 7, 16);
 
-  var MODEL_CENTER = new THREE.Vector3(0.15, 0.15, 0);
-  var ZOOM_FACTOR = 0.72;
-  var VIEW_DIR = new THREE.Vector3(0.62, 0.50, 0.60).normalize();
+  const MODEL_CENTER = new THREE.Vector3(0.15, 0.15, 0);
+  const ZOOM_FACTOR = 0.72;
+  const VIEW_DIR = new THREE.Vector3(0.62, 0.50, 0.60).normalize();
 
-  var camera = new THREE.PerspectiveCamera(45, container.clientWidth / container.clientHeight, 0.1, 100);
+  const camera = new THREE.PerspectiveCamera(45, container.clientWidth / container.clientHeight, 0.1, 100);
   camera.position.copy(MODEL_CENTER).addScaledVector(VIEW_DIR, 4.0);
   camera.lookAt(MODEL_CENTER);
 
-  var renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: 'high-performance', alpha: true });
+  const renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: 'high-performance', alpha: true });
   renderer.setPixelRatio(Math.min(window.devicePixelRatio, 1.5));
   renderer.setSize(container.clientWidth, container.clientHeight, false);
-  renderer.domElement.style.cssText = 'width:100%;height:100%;display:block;position:absolute;top:0;left:0;z-index:2;';
+  Object.assign(renderer.domElement.style, { width:'100%', height:'100%', display:'block', position:'absolute', inset:'0', zIndex: 2 });
   renderer.shadowMap.enabled = true;
   renderer.shadowMap.type = THREE.PCFSoftShadowMap;
   renderer.toneMapping = THREE.ACESFilmicToneMapping;
   renderer.toneMappingExposure = 1.05;
   container.appendChild(renderer.domElement);
 
-  var labelRenderer = new CSS2DRenderer();
+  const labelRenderer = new CSS2DRenderer();
   labelRenderer.setSize(container.clientWidth, container.clientHeight, false);
-  labelRenderer.domElement.style.cssText = 'position:absolute;top:0;left:0;width:100%;height:100%;pointer-events:none;z-index:3;';
+  Object.assign(labelRenderer.domElement.style, { position:'absolute', inset:'0', width:'100%', height:'100%', pointerEvents:'none', zIndex: 3 });
   container.appendChild(labelRenderer.domElement);
 
-  var controls = new OrbitControls(camera, renderer.domElement);
+  const controls = new OrbitControls(camera, renderer.domElement);
   controls.enableDamping = true;
   controls.dampingFactor = 0.08;
   controls.target.copy(MODEL_CENTER);
@@ -172,250 +165,251 @@
   controls.autoRotateSpeed = 0.35;
 
   scene.add(new THREE.HemisphereLight(0xffffff, 0xcac5be, 0.95));
-  var key = new THREE.DirectionalLight(0xffffff, 1.65);
+  const key = new THREE.DirectionalLight(0xffffff, 1.65);
   key.position.set(3.5, -4.5, 3);
   key.castShadow = true;
   key.shadow.mapSize.set(1024, 1024);
-  key.shadow.camera.left = -3.5; key.shadow.camera.right = 3.5;
-  key.shadow.camera.top = 3.5; key.shadow.camera.bottom = -3.5;
-  key.shadow.camera.near = 0.1; key.shadow.camera.far = 20;
+  Object.assign(key.shadow.camera, { left:-3.5, right:3.5, top:3.5, bottom:-3.5, near:0.1, far:20 });
   key.shadow.bias = -0.0006;
   key.shadow.normalBias = 0.003;
   scene.add(key);
-  var fill = new THREE.DirectionalLight(0xffffff, 0.35);
+  const fill = new THREE.DirectionalLight(0xffffff, 0.35);
   fill.position.set(-4, 1.5, -3);
   scene.add(fill);
 
-  var matFlange   = new THREE.MeshStandardMaterial({ color:0xf7f6f3, metalness:0.05, roughness:0.55 });
-  var matGalv     = new THREE.MeshStandardMaterial({ color:0xc9ced3, metalness:0.82, roughness:0.30, side:THREE.DoubleSide });
-  var matGalvDark = new THREE.MeshStandardMaterial({ color:0xa4aab0, metalness:0.78, roughness:0.36, side:THREE.DoubleSide });
-  var matPanel    = new THREE.MeshStandardMaterial({ color:0xf6f4f0, metalness:0.08, roughness:0.62 });
-  var matEdge     = new THREE.MeshStandardMaterial({ color:0xdedbd5, metalness:0.25, roughness:0.48 });
-  var matWire     = new THREE.MeshStandardMaterial({ color:0xc6cacd, metalness:0.92, roughness:0.18 });
-  var matSlot     = new THREE.MeshStandardMaterial({ color:0x33383d, metalness:0.6, roughness:0.5 });
-  var matClip     = new THREE.MeshStandardMaterial({ color:0x8f959b, metalness:0.90, roughness:0.25, side:THREE.DoubleSide });
-  var matMini     = new THREE.MeshStandardMaterial({ color:0xb0b6bb, metalness:0.85, roughness:0.32, side:THREE.DoubleSide });
-  var matPlate    = new THREE.MeshStandardMaterial({ color:0x9aa0a6, metalness:0.85, roughness:0.30, side:THREE.DoubleSide });
-  var matBolt     = new THREE.MeshStandardMaterial({ color:0x707880, metalness:0.95, roughness:0.20 });
-  var matHoPanel  = new THREE.MeshStandardMaterial({ color:0xf6f4f0, metalness:0.10, roughness:0.55, side:THREE.DoubleSide });
+  const matFlange   = new THREE.MeshStandardMaterial({ color:0xf7f6f3, metalness:0.05, roughness:0.55 });
+  const matGalv     = new THREE.MeshStandardMaterial({ color:0xc9ced3, metalness:0.82, roughness:0.30, side:THREE.DoubleSide });
+  const matGalvDark = new THREE.MeshStandardMaterial({ color:0xa4aab0, metalness:0.78, roughness:0.36, side:THREE.DoubleSide });
+  const matPanel    = new THREE.MeshStandardMaterial({ color:0xf6f4f0, metalness:0.08, roughness:0.62 });
+  const matEdge     = new THREE.MeshStandardMaterial({ color:0xdedbd5, metalness:0.25, roughness:0.48 });
+  const matWire     = new THREE.MeshStandardMaterial({ color:0xc6cacd, metalness:0.92, roughness:0.18 });
+  const matSlot     = new THREE.MeshStandardMaterial({ color:0x33383d, metalness:0.6, roughness:0.5 });
+  const matClip     = new THREE.MeshStandardMaterial({ color:0x8f959b, metalness:0.90, roughness:0.25, side:THREE.DoubleSide });
+  const matMini     = new THREE.MeshStandardMaterial({ color:0xb0b6bb, metalness:0.85, roughness:0.32, side:THREE.DoubleSide });
+  const matPlate    = new THREE.MeshStandardMaterial({ color:0x9aa0a6, metalness:0.85, roughness:0.30, side:THREE.DoubleSide });
+  const matBolt     = new THREE.MeshStandardMaterial({ color:0x707880, metalness:0.95, roughness:0.20 });
+  const matHoPanel  = new THREE.MeshStandardMaterial({ color:0xf6f4f0, metalness:0.10, roughness:0.55, side:THREE.DoubleSide });
 
-  function easeInOutCubic(t){ return t < 0.5 ? 4*t*t*t : 1 - Math.pow(-2*t + 2, 3) / 2; }
+  const easeInOutCubic = t => t < 0.5 ? 4*t*t*t : 1 - Math.pow(-2*t + 2, 3) / 2;
 
-  var allLabelEls = [];
-  var allLabelLines = { layin: [], clipin: [], hookon: [] };
+  const allLabelEls = [];
+  const allLabelLines = { layin: [], clipin: [], hookon: [] };
 
   function addLabel(root, modelKey, text, anchor, labelPos) {
-    var mat = new THREE.LineBasicMaterial({ color:0x2a2f35, transparent:true, opacity:0 });
-    var line = new THREE.Line(new THREE.BufferGeometry().setFromPoints([anchor.clone(), labelPos.clone()]), mat);
+    const mat = new THREE.LineBasicMaterial({ color:0x2a2f35, transparent:true, opacity:0 });
+    const line = new THREE.Line(
+      new THREE.BufferGeometry().setFromPoints([anchor.clone(), labelPos.clone()]),
+      mat
+    );
     line.visible = false;
     line.userData.targetOpacity = 0;
     root.add(line);
     allLabelLines[modelKey].push(line);
 
-    var div = document.createElement('div');
+    const div = document.createElement('div');
     div.className = 'label-3d';
     div.textContent = text;
-    var obj = new CSS2DObject(div);
+    const obj = new CSS2DObject(div);
     obj.position.copy(labelPos);
     root.add(obj);
-    allLabelEls.push({ el: div, modelKey: modelKey });
+    allLabelEls.push({ el: div, modelKey });
   }
 
-  // ============== ПОДВЕС ==============
-  function makeSuspension(hookMode) {
-    hookMode = hookMode || 'flat';
-    var g = new THREE.Group();
-    var wireR = 0.0012;
-    var wireA_x = -0.0018, wireB_x = 0.0018;
-    var baseY = 0.120;
-    var SCALE = 0.5;
-    function transformY(y){ return baseY + (y - baseY) * SCALE; }
-    var plugTopY = transformY(1.15);
-    var wireA_top = transformY(1.15 - 0.010);
-    var wireA_bot = baseY;
-    var wireB_top = transformY(0.505);
-    var wireB_bot = 0.120;
-    var PLATE_Y = transformY(0.420);
+  function makeSuspension(hookMode = 'flat') {
+    const g = new THREE.Group();
+    const wireR = 0.0012;
+    const wireA_x = -0.0018, wireB_x = 0.0018;
 
-    var loopTop = new THREE.Mesh(new THREE.TorusGeometry(0.0060, wireR, 10, 24, Math.PI * 1.5), matWire);
+    const baseY = 0.120;
+    const SCALE = 0.5;
+    const transformY = (y) => baseY + (y - baseY) * SCALE;
+
+    const plugTopY = transformY(1.15);
+    const wireA_top = transformY(1.15 - 0.010);
+    const wireA_bot = baseY;
+    const wireB_top = transformY(0.505);
+    const wireB_bot = 0.120;
+    const PLATE_Y = transformY(0.420);
+
+    const loopTop = new THREE.Mesh(new THREE.TorusGeometry(0.0060, wireR, 10, 24, Math.PI * 1.5), matWire);
     loopTop.rotation.y = Math.PI / 2;
     loopTop.position.set(wireA_x, plugTopY, 0);
     g.add(loopTop);
-    var tipTop = new THREE.Mesh(new THREE.CylinderGeometry(wireR, wireR, 0.012, 8), matWire);
+
+    const tipTop = new THREE.Mesh(new THREE.CylinderGeometry(wireR, wireR, 0.012, 8), matWire);
     tipTop.position.set(wireA_x + 0.006, plugTopY - 0.004, 0);
     tipTop.rotation.z = Math.PI / 2.6;
     g.add(tipTop);
-    var wireA = new THREE.Mesh(new THREE.CylinderGeometry(wireR, wireR, wireA_top - wireA_bot, 8), matWire);
+
+    const wireA = new THREE.Mesh(new THREE.CylinderGeometry(wireR, wireR, wireA_top - wireA_bot, 8), matWire);
     wireA.position.set(wireA_x, (wireA_top + wireA_bot) / 2, 0);
     g.add(wireA);
-    var wireB = new THREE.Mesh(new THREE.CylinderGeometry(wireR, wireR, wireB_top - wireB_bot, 8), matWire);
+
+    const wireB = new THREE.Mesh(new THREE.CylinderGeometry(wireR, wireR, wireB_top - wireB_bot, 8), matWire);
     wireB.position.set(wireB_x, (wireB_top + wireB_bot) / 2, 0);
     g.add(wireB);
 
-    var PLATE_W = 0.018, PLATE_H = 0.020, PLATE_D = 0.0012;
-    var plateShape = new THREE.Shape();
+    const PLATE_W = 0.018, PLATE_H = 0.020, PLATE_D = 0.0012;
+    const plateShape = new THREE.Shape();
     plateShape.moveTo(-PLATE_W/2, -PLATE_H/2);
     plateShape.lineTo( PLATE_W/2, -PLATE_H/2);
     plateShape.lineTo( PLATE_W/2,  PLATE_H/2);
     plateShape.lineTo(-PLATE_W/2,  PLATE_H/2);
     plateShape.lineTo(-PLATE_W/2, -PLATE_H/2);
-    [-1, 1].forEach(function(sx){
-      var hole = new THREE.Path();
+    for (const sx of [-1, 1]) {
+      const hole = new THREE.Path();
       hole.absarc(sx * 0.0018, 0, 0.0016, 0, Math.PI * 2, false);
       plateShape.holes.push(hole);
-    });
-    var plateGeo = new THREE.ExtrudeGeometry(plateShape, { depth: PLATE_D, bevelEnabled: false, curveSegments: 12 });
+    }
+    const plateGeo = new THREE.ExtrudeGeometry(plateShape, { depth: PLATE_D, bevelEnabled: false, curveSegments: 12 });
     plateGeo.translate(0, 0, -PLATE_D / 2);
-    var plate = new THREE.Mesh(plateGeo, matPlate);
+    const plate = new THREE.Mesh(plateGeo, matPlate);
     plate.position.set(0, PLATE_Y, 0);
     g.add(plate);
 
     if (hookMode === 'flat') {
-      var hookPts = [
+      const hookPts = [
         new THREE.Vector3(wireA_x, wireA_bot + 0.005, 0),
         new THREE.Vector3(wireA_x, 0.050, 0),
         new THREE.Vector3(wireA_x, 0.025, 0),
         new THREE.Vector3(wireA_x, 0.010, 0),
         new THREE.Vector3(wireA_x - 0.004, 0.006, 0),
-        new THREE.Vector3(wireA_x - 0.012, 0.005, 0)
+        new THREE.Vector3(wireA_x - 0.012, 0.005, 0),
       ];
-      var hook = new THREE.Mesh(new THREE.TubeGeometry(new THREE.CatmullRomCurve3(hookPts), 24, wireR, 8, false), matWire);
+      const hook = new THREE.Mesh(new THREE.TubeGeometry(new THREE.CatmullRomCurve3(hookPts), 24, wireR, 8, false), matWire);
       g.add(hook);
     } else {
-      var hookPoints = [
+      const hookPoints = [
         new THREE.Vector3(wireA_x, wireA_bot + 0.001, 0),
         new THREE.Vector3(wireA_x, BULB_CY - 0.002, 0),
         new THREE.Vector3(wireA_x - 0.003, BULB_CY - BULB_R - 0.003, 0),
         new THREE.Vector3(wireA_x - 0.010, BULB_CY - BULB_R - 0.003, 0),
         new THREE.Vector3(wireA_x - 0.015, BULB_CY - BULB_R + 0.002, 0),
         new THREE.Vector3(wireA_x - 0.015, BULB_CY + BULB_R + 0.002, 0),
-        new THREE.Vector3(wireA_x - 0.011, BULB_CY + BULB_R + 0.005, 0)
+        new THREE.Vector3(wireA_x - 0.011, BULB_CY + BULB_R + 0.005, 0),
       ];
-      var hook2 = new THREE.Mesh(new THREE.TubeGeometry(new THREE.CatmullRomCurve3(hookPoints), 30, wireR, 8, false), matWire);
-      g.add(hook2);
+      const hook = new THREE.Mesh(new THREE.TubeGeometry(new THREE.CatmullRomCurve3(hookPoints), 30, wireR, 8, false), matWire);
+      g.add(hook);
     }
-    g.traverse(function(o){ if (o.isMesh) o.castShadow = true; });
+    g.traverse(o => { if (o.isMesh) o.castShadow = true; });
     g.userData.plateY = PLATE_Y;
     return g;
   }
 
   function makeMiniHanger() {
-    var g = new THREE.Group();
-    var plate = new THREE.Mesh(new THREE.BoxGeometry(MINI_PLATE_D, MINI_PLATE_H, MINI_PLATE_W), matMini);
+    const g = new THREE.Group();
+    const plate = new THREE.Mesh(new THREE.BoxGeometry(MINI_PLATE_D, MINI_PLATE_H, MINI_PLATE_W), matMini);
     plate.position.y = -MINI_PLATE_H / 2;
     g.add(plate);
-    var legShape = new THREE.Shape();
+    const legShape = new THREE.Shape();
     legShape.moveTo(-MINI_LEG_W/2, 0);
     legShape.lineTo( MINI_LEG_W/2, 0);
     legShape.lineTo( MINI_LEG_W/2, MINI_LEG_H);
     legShape.lineTo(-MINI_LEG_W/2, MINI_LEG_H);
     legShape.lineTo(-MINI_LEG_W/2, 0);
-    var holePath = new THREE.Path();
+    const holePath = new THREE.Path();
     holePath.absarc(0, MINI_LEG_H - 0.005, MINI_HOLE_R, 0, Math.PI * 2, false);
     legShape.holes.push(holePath);
-    var legGeo = new THREE.ExtrudeGeometry(legShape, { depth: MINI_T, bevelEnabled: false, curveSegments: 16 });
+    const legGeo = new THREE.ExtrudeGeometry(legShape, { depth: MINI_T, bevelEnabled: false, curveSegments: 16 });
     legGeo.translate(0, 0, -MINI_T / 2);
-    g.add(new THREE.Mesh(legGeo, matMini));
-    [-1, 1].forEach(function(sz){
-      var ear = new THREE.Mesh(new THREE.BoxGeometry(MINI_PLATE_D, MINI_PLATE_H * 2, MINI_T), matMini);
+    const leg = new THREE.Mesh(legGeo, matMini);
+    g.add(leg);
+    for (const sz of [-1, 1]) {
+      const ear = new THREE.Mesh(new THREE.BoxGeometry(MINI_PLATE_D, MINI_PLATE_H * 2, MINI_T), matMini);
       ear.position.set(0, -MINI_PLATE_H, sz * (MINI_PLATE_W / 2 - MINI_T / 2));
       g.add(ear);
-    });
-    g.traverse(function(o){ if (o.isMesh){ o.castShadow = true; o.receiveShadow = true; } });
+    }
+    g.traverse(o => { if (o.isMesh) { o.castShadow = true; o.receiveShadow = true; } });
     return g;
   }
 
-  // ============== LAY-IN ==============
   function buildLayIn() {
-    var root = new THREE.Group();
-    var animatables = [];
+    const root = new THREE.Group();
+    const animatables = [];
 
-    function makeTRunner(len, opts) {
-      opts = opts || {};
-      var withSlots = opts.withSlots || false;
-      var withEndLocks = opts.withEndLocks || false;
-      var slotStep = opts.slotStep || 0.15;
-      var g = new THREE.Group();
-      var flange = new THREE.Mesh(new THREE.BoxGeometry(len, FLANGE_T, FLANGE_W), matFlange);
+    function makeTRunner(len, opts = {}) {
+      const { withSlots = false, withEndLocks = false, slotStep = 0.15 } = opts;
+      const g = new THREE.Group();
+      const flange = new THREE.Mesh(new THREE.BoxGeometry(len, FLANGE_T, FLANGE_W), matFlange);
       flange.position.y = FLANGE_T / 2; g.add(flange);
-      var web = new THREE.Mesh(new THREE.BoxGeometry(len, WEB_H, WEB_T), matGalv);
+      const web = new THREE.Mesh(new THREE.BoxGeometry(len, WEB_H, WEB_T), matGalv);
       web.position.y = FLANGE_T + WEB_H / 2; g.add(web);
-      var bulb = new THREE.Mesh(new THREE.CylinderGeometry(BULB_R, BULB_R, len, 16), matGalv);
+      const bulb = new THREE.Mesh(new THREE.CylinderGeometry(BULB_R, BULB_R, len, 16), matGalv);
       bulb.rotation.z = Math.PI / 2;
       bulb.position.y = FLANGE_T + WEB_H + BULB_R; g.add(bulb);
       if (withSlots) {
-        var count = Math.floor(len / slotStep);
-        for (var i = 1; i < count; i++) {
-          var x = -len/2 + i*slotStep;
-          var slot = new THREE.Mesh(new THREE.BoxGeometry(0.014, 0.009, WEB_T + 0.0014), matSlot);
+        const count = Math.floor(len / slotStep);
+        for (let i = 1; i < count; i++) {
+          const x = -len/2 + i*slotStep;
+          const slot = new THREE.Mesh(new THREE.BoxGeometry(0.014, 0.009, WEB_T + 0.0014), matSlot);
           slot.position.set(x, FLANGE_T + WEB_H*0.70, 0); g.add(slot);
-          var tab = new THREE.Mesh(new THREE.BoxGeometry(0.010, 0.0018, WEB_T + 0.0010), matGalvDark);
+          const tab = new THREE.Mesh(new THREE.BoxGeometry(0.010, 0.0018, WEB_T + 0.0010), matGalvDark);
           tab.position.set(x, FLANGE_T + WEB_H*0.70 + 0.0055, 0); g.add(tab);
         }
       }
       if (withEndLocks) {
-        [-1, 1].forEach(function(sx){
-          var lock = new THREE.Mesh(new THREE.BoxGeometry(0.012, 0.016, 0.0034), matGalvDark);
+        for (const sx of [-1, 1]) {
+          const lock = new THREE.Mesh(new THREE.BoxGeometry(0.012, 0.016, 0.0034), matGalvDark);
           lock.position.set(sx*(len/2 - 0.006), FLANGE_T + WEB_H*0.55, 0); g.add(lock);
-          var beak = new THREE.Mesh(new THREE.BoxGeometry(0.005, 0.004, 0.0030), matGalvDark);
+          const beak = new THREE.Mesh(new THREE.BoxGeometry(0.005, 0.004, 0.0030), matGalvDark);
           beak.position.set(sx*(len/2 - 0.001), FLANGE_T + WEB_H*0.72, 0); g.add(beak);
-          var notch = new THREE.Mesh(new THREE.BoxGeometry(0.0012, 0.010, WEB_T + 0.0010), matSlot);
+          const notch = new THREE.Mesh(new THREE.BoxGeometry(0.0012, 0.010, WEB_T + 0.0010), matSlot);
           notch.position.set(sx*(len/2 - 0.010), FLANGE_T + WEB_H*0.55, 0); g.add(notch);
-        });
+        }
       }
-      g.traverse(function(o){ if (o.isMesh){ o.castShadow = true; o.receiveShadow = true; }});
+      g.traverse(o => { if (o.isMesh){ o.castShadow = true; o.receiveShadow = true; }});
       return g;
     }
 
     function makeFixationClip() {
-      var g = new THREE.Group();
-      var clipW = 0.014, metalT = 0.0009;
-      var ledgeTopY = FLANGE_T + LEDGE_T;
-      var bridge = new THREE.Mesh(new THREE.BoxGeometry(clipW, metalT, WEB_T + 0.010), matClip);
+      const g = new THREE.Group();
+      const clipW = 0.014, metalT = 0.0009;
+      const ledgeTopY = FLANGE_T + LEDGE_T;
+      const bridge = new THREE.Mesh(new THREE.BoxGeometry(clipW, metalT, WEB_T + 0.010), matClip);
       bridge.position.set(0, BULB_TOP + metalT/2, 0); g.add(bridge);
-      [-1, 1].forEach(function(sz){
-        var wall = new THREE.Mesh(new THREE.BoxGeometry(clipW, BULB_TOP - FLANGE_T, metalT), matClip);
+      for (const sz of [-1, 1]) {
+        const wall = new THREE.Mesh(new THREE.BoxGeometry(clipW, BULB_TOP - FLANGE_T, metalT), matClip);
         wall.position.set(0, (BULB_TOP + FLANGE_T)/2, sz*(WEB_T/2 + metalT/2 + 0.0012)); g.add(wall);
-        var tab = new THREE.Mesh(new THREE.BoxGeometry(clipW, metalT, 0.011), matClip);
+        const tab = new THREE.Mesh(new THREE.BoxGeometry(clipW, metalT, 0.011), matClip);
         tab.position.set(0, ledgeTopY + metalT/2 + 0.0002, sz*(WEB_T/2 + 0.0075)); g.add(tab);
-        var curl = new THREE.Mesh(new THREE.CylinderGeometry(metalT*1.2, metalT*1.2, clipW, 8), matClip);
+        const curl = new THREE.Mesh(new THREE.CylinderGeometry(metalT*1.2, metalT*1.2, clipW, 8), matClip);
         curl.rotation.z = Math.PI / 2;
         curl.position.set(0, ledgeTopY - metalT, sz*(WEB_T/2 + 0.0125)); g.add(curl);
-        var ear = new THREE.Mesh(new THREE.BoxGeometry(clipW, metalT, 0.0030), matClip);
+        const ear = new THREE.Mesh(new THREE.BoxGeometry(clipW, metalT, 0.0030), matClip);
         ear.position.set(0, BULB_TOP - 0.0012, sz*(WEB_T/2 + 0.0055));
         ear.rotation.x = sz * 0.25; g.add(ear);
-      });
-      g.traverse(function(o){ if (o.isMesh) o.castShadow = true; });
+      }
+      g.traverse(o => { if (o.isMesh) o.castShadow = true; });
       return g;
     }
 
     function makeTegularCassette() {
-      var g = new THREE.Group();
-      var s = PANEL_SIZE;
-      var panelTopY = -DROP, flangeTopY = FLANGE_T;
-      var panel = new THREE.Mesh(new THREE.BoxGeometry(s, PANEL_T, s), matPanel);
+      const g = new THREE.Group();
+      const s = PANEL_SIZE;
+      const panelTopY = -DROP, flangeTopY = FLANGE_T;
+      const panel = new THREE.Mesh(new THREE.BoxGeometry(s, PANEL_T, s), matPanel);
       panel.position.y = panelTopY - PANEL_T/2; g.add(panel);
-      var skirtH = flangeTopY - panelTopY;
-      var skirtY = (panelTopY + flangeTopY)/2;
-      function mkZ(z){ var m = new THREE.Mesh(new THREE.BoxGeometry(s, skirtH, EDGE_T), matEdge); m.position.set(0, skirtY, z); return m; }
-      function mkX(x){ var m = new THREE.Mesh(new THREE.BoxGeometry(EDGE_T, skirtH, s), matEdge); m.position.set(x, skirtY, 0); return m; }
+      const skirtH = flangeTopY - panelTopY;
+      const skirtY = (panelTopY + flangeTopY)/2;
+      const mkZ = (z) => { const m = new THREE.Mesh(new THREE.BoxGeometry(s, skirtH, EDGE_T), matEdge); m.position.set(0, skirtY, z); return m; };
+      const mkX = (x) => { const m = new THREE.Mesh(new THREE.BoxGeometry(EDGE_T, skirtH, s), matEdge); m.position.set(x, skirtY, 0); return m; };
       g.add(mkZ(-s/2), mkZ(s/2), mkX(-s/2), mkX(s/2));
-      var ledgeY = flangeTopY + LEDGE_T/2, ledgeLen = s + LEDGE_W*2;
-      function mkLZ(z){ var m = new THREE.Mesh(new THREE.BoxGeometry(ledgeLen, LEDGE_T, LEDGE_W), matEdge); m.position.set(0, ledgeY, z); return m; }
-      function mkLX(x){ var m = new THREE.Mesh(new THREE.BoxGeometry(LEDGE_W, LEDGE_T, ledgeLen), matEdge); m.position.set(x, ledgeY, 0); return m; }
+      const ledgeY = flangeTopY + LEDGE_T/2, ledgeLen = s + LEDGE_W*2;
+      const mkLZ = (z) => { const m = new THREE.Mesh(new THREE.BoxGeometry(ledgeLen, LEDGE_T, LEDGE_W), matEdge); m.position.set(0, ledgeY, z); return m; };
+      const mkLX = (x) => { const m = new THREE.Mesh(new THREE.BoxGeometry(LEDGE_W, LEDGE_T, ledgeLen), matEdge); m.position.set(x, ledgeY, 0); return m; };
       g.add(mkLZ(-s/2 - LEDGE_W/2), mkLZ(s/2 + LEDGE_W/2), mkLX(-s/2 - LEDGE_W/2), mkLX(s/2 + LEDGE_W/2));
-      g.traverse(function(o){ if (o.isMesh){ o.castShadow = true; o.receiveShadow = true; }});
+      g.traverse(o => { if (o.isMesh){ o.castShadow = true; o.receiveShadow = true; }});
       return g;
     }
 
-    var gridGroup = new THREE.Group();
-    for (var r = 0; r <= ROWS; r++) {
-      var m = makeTRunner(W + FLANGE_W, { withSlots:true, slotStep:0.15 });
+    const gridGroup = new THREE.Group();
+    for (let r = 0; r <= ROWS; r++) {
+      const m = makeTRunner(W + FLANGE_W, { withSlots:true, slotStep:0.15 });
       m.position.set(0, 0, -D/2 + r*CELL);
       gridGroup.add(m);
     }
-    for (var c = 0; c <= COLS; c++) {
-      var cr = makeTRunner(D + FLANGE_W, { withEndLocks:true });
+    for (let c = 0; c <= COLS; c++) {
+      const cr = makeTRunner(D + FLANGE_W, { withEndLocks:true });
       cr.rotation.y = Math.PI/2;
       cr.position.set(-W/2 + c*CELL, 0, 0);
       gridGroup.add(cr);
@@ -423,61 +417,61 @@
     root.add(gridGroup);
     animatables.push({ obj: gridGroup, baseY: 0, offsetY: 0.06, delay: 0.90, span: 0.10 });
 
-    var clipsGroup = new THREE.Group();
-    for (var r2 = 0; r2 <= ROWS; r2++) {
-      var z = -D/2 + r2*CELL;
-      for (var c2 = 0; c2 < COLS; c2++) {
-        var cellBelow = r2 < ROWS && !(r2 === MISSING.r && c2 === MISSING.c);
-        var cellAbove = r2 > 0 && !(r2-1 === MISSING.r && c2 === MISSING.c);
+    const clipsGroup = new THREE.Group();
+    for (let r = 0; r <= ROWS; r++) {
+      const z = -D/2 + r*CELL;
+      for (let c = 0; c < COLS; c++) {
+        const cellBelow = r < ROWS && !(r === MISSING.r && c === MISSING.c);
+        const cellAbove = r > 0 && !(r-1 === MISSING.r && c === MISSING.c);
         if (!cellBelow && !cellAbove) continue;
-        var cx = -W/2 + CELL/2 + c2*CELL;
-        [cx - CELL*0.22, cx + CELL*0.22].forEach(function(x){
-          var clip = makeFixationClip();
+        const cx = -W/2 + CELL/2 + c*CELL;
+        for (const x of [cx - CELL*0.22, cx + CELL*0.22]) {
+          const clip = makeFixationClip();
           clip.position.set(x, 0, z);
           clipsGroup.add(clip);
-        });
+        }
       }
     }
     root.add(clipsGroup);
     animatables.push({ obj: clipsGroup, baseY: 0, offsetY: 0.06, delay: 0.90, span: 0.10 });
 
-    var suspX = [-W/2 + CELL*0.5, W/2 - CELL*0.5];
-    var suspList = [];
-    [0, ROWS].forEach(function(rr){
-      var zz = -D/2 + rr*CELL;
-      suspX.forEach(function(x){
-        var e = makeSuspension('bulb');
-        e.position.set(x, 0, zz);
+    const suspX = [-W/2 + CELL*0.5, W/2 - CELL*0.5];
+    const suspList = [];
+    for (const r of [0, ROWS]) {
+      const z = -D/2 + r*CELL;
+      for (const x of suspX) {
+        const e = makeSuspension('bulb');
+        e.position.set(x, 0, z);
         root.add(e);
         suspList.push(e);
-      });
-    });
-    suspList.forEach(function(e, i){
-      var delay = (i / suspList.length) * 0.40;
-      animatables.push({ obj: e, baseY: 0, offsetY: 0.95, delay: delay, span: 0.35 });
-    });
-
-    var cassettesList = [];
-    for (var rr = 0; rr < ROWS; rr++) {
-      for (var cc = 0; cc < COLS; cc++) {
-        if (rr === MISSING.r && cc === MISSING.c) continue;
-        var cass = makeTegularCassette();
-        var ccx = -W/2 + CELL/2 + cc*CELL;
-        var ccz = -D/2 + CELL/2 + rr*CELL;
-        cass.position.set(ccx, 0, ccz);
-        root.add(cass);
-        cassettesList.push({ obj: cass, r: rr, c: cc });
       }
     }
-    cassettesList.sort(function(a,b){ return a.c !== b.c ? a.c - b.c : b.r - a.r; });
-    cassettesList.forEach(function(item, i){
-      var delay = 0.35 + (i / cassettesList.length) * 0.40;
-      animatables.push({ obj: item.obj, baseY: 0, offsetY: -0.60, delay: delay, span: 0.25 });
+    suspList.forEach((e, i) => {
+      const delay = (i / suspList.length) * 0.40;
+      animatables.push({ obj: e, baseY: 0, offsetY: 0.95, delay, span: 0.35 });
     });
 
-    var plateY = suspList[0].userData.plateY || 0.270;
+    const cassettesList = [];
+    for (let r = 0; r < ROWS; r++) {
+      for (let c = 0; c < COLS; c++) {
+        if (r === MISSING.r && c === MISSING.c) continue;
+        const cass = makeTegularCassette();
+        const cx = -W/2 + CELL/2 + c*CELL;
+        const cz = -D/2 + CELL/2 + r*CELL;
+        cass.position.set(cx, 0, cz);
+        root.add(cass);
+        cassettesList.push({ obj: cass, r, c });
+      }
+    }
+    cassettesList.sort((a,b) => a.c !== b.c ? a.c - b.c : b.r - a.r);
+    cassettesList.forEach((item, i) => {
+      const delay = 0.35 + (i / cassettesList.length) * 0.40;
+      animatables.push({ obj: item.obj, baseY: 0, offsetY: -0.60, delay, span: 0.25 });
+    });
 
-    var labelCassettePos = new THREE.Vector3(-W/2 + CELL/2 + (COLS-1)*CELL, -DROP, -D/2 + CELL/2);
+    const plateY = suspList[0].userData.plateY || 0.270;
+
+    const labelCassettePos = new THREE.Vector3(-W/2 + CELL/2 + (COLS-1)*CELL, -DROP, -D/2 + CELL/2);
     addLabel(root, 'layin', 'Кассета 595х595 Tegular 90',
       new THREE.Vector3(labelCassettePos.x, -DROP*0.6, labelCassettePos.z),
       new THREE.Vector3(labelCassettePos.x + 0.40, 0.20, labelCassettePos.z + 0.40));
@@ -487,111 +481,110 @@
     addLabel(root, 'layin', 'Подвес регулируемый',
       new THREE.Vector3(suspX[0], plateY, -D/2),
       new THREE.Vector3(suspX[0] - 0.45, plateY + 0.15, -D/2 - 0.20));
-    var clipAnchor = new THREE.Vector3(-W/2 + CELL/2 + CELL*2 - CELL*0.22, BULB_TOP - 0.005, -D/2 + CELL);
+    const clipAnchor = new THREE.Vector3(-W/2 + CELL/2 + CELL*2 - CELL*0.22, BULB_TOP - 0.005, -D/2 + CELL);
     addLabel(root, 'layin', 'Клипса фиксации кассеты', clipAnchor,
       new THREE.Vector3(clipAnchor.x + 0.35, 0.15, clipAnchor.z + 0.35));
 
-    return { root: root, animatables: animatables };
+    return { root, animatables };
   }
 
-  // ============== CLIP-IN ==============
   function buildClipIn() {
-    var root = new THREE.Group();
-    var animatables = [];
+    const root = new THREE.Group();
+    const animatables = [];
 
     function makeClipInRunner(len) {
-      var halfW = CI_SIDE / 2, h = CI_TRI_H;
-      var outer = new THREE.Shape();
+      const halfW = CI_SIDE / 2, h = CI_TRI_H;
+      const outer = new THREE.Shape();
       outer.moveTo(-halfW, 0); outer.lineTo( halfW, 0); outer.lineTo( 0, -h); outer.lineTo(-halfW, 0);
-      var cy = -h / 3, k = CI_HOLLOW;
-      var inner = new THREE.Path();
+      const cy = -h / 3, k = CI_HOLLOW;
+      const inner = new THREE.Path();
       inner.moveTo(-halfW * k, cy + (0 - cy) * k);
       inner.lineTo( halfW * k, cy + (0 - cy) * k);
       inner.lineTo( 0, cy + (-h - cy) * k);
       inner.lineTo(-halfW * k, cy + (0 - cy) * k);
       outer.holes.push(inner);
-      var geo = new THREE.ExtrudeGeometry(outer, { depth: len, bevelEnabled: false, curveSegments: 1 });
+      const geo = new THREE.ExtrudeGeometry(outer, { depth: len, bevelEnabled: false, curveSegments: 1 });
       geo.rotateY(Math.PI / 2);
       geo.translate(-len / 2, 0, 0);
-      var g = new THREE.Group();
+      const g = new THREE.Group();
       g.add(new THREE.Mesh(geo, matGalv));
-      g.traverse(function(o){ if (o.isMesh){ o.castShadow = true; o.receiveShadow = true; } });
+      g.traverse(o => { if (o.isMesh) { o.castShadow = true; o.receiveShadow = true; } });
       return g;
     }
 
     function makeClipInCassette() {
-      var g = new THREE.Group();
-      var s = CI_PANEL_SZ, lip = CI_LIP_H;
-      var panel = new THREE.Mesh(new THREE.BoxGeometry(s, CI_PANEL_T, s), matPanel);
+      const g = new THREE.Group();
+      const s = CI_PANEL_SZ, lip = CI_LIP_H;
+      const panel = new THREE.Mesh(new THREE.BoxGeometry(s, CI_PANEL_T, s), matPanel);
       g.add(panel);
-      function mkSide(axis, sign) {
-        var off = s / 2 + CI_EDGE_T / 2;
-        var geo = axis === 'z'
+      const mkSide = (axis, sign) => {
+        const off = s / 2 + CI_EDGE_T / 2;
+        const geo = axis === 'z'
           ? new THREE.BoxGeometry(s + 2 * CI_EDGE_T, lip, CI_EDGE_T)
           : new THREE.BoxGeometry(CI_EDGE_T, lip, s + 2 * CI_EDGE_T);
-        var wall = new THREE.Mesh(geo, matEdge);
+        const wall = new THREE.Mesh(geo, matEdge);
         if (axis === 'z') wall.position.set(0, CI_PANEL_T / 2 + lip / 2, sign * off);
         else              wall.position.set(sign * off, CI_PANEL_T / 2 + lip / 2, 0);
         g.add(wall);
-      }
+      };
       mkSide('z', -1); mkSide('z', 1); mkSide('x', -1); mkSide('x', 1);
-      g.traverse(function(o){ if (o.isMesh){ o.castShadow = true; o.receiveShadow = true; } });
+      g.traverse(o => { if (o.isMesh) { o.castShadow = true; o.receiveShadow = true; } });
       return g;
     }
 
-    var gridGroup = new THREE.Group();
-    for (var r = 0; r <= ROWS; r++) {
-      var runner = makeClipInRunner(W + 0.02);
+    const gridGroup = new THREE.Group();
+    for (let r = 0; r <= ROWS; r++) {
+      const runner = makeClipInRunner(W + 0.02);
       runner.position.set(0, -CI_DROP_Y, -D / 2 + r * CELL);
       gridGroup.add(runner);
     }
     root.add(gridGroup);
     animatables.push({ obj: gridGroup, baseY: -CI_DROP_Y, offsetY: 0.08, delay: 0.85, span: 0.12 });
 
-    var suspX = [-W / 2 + CELL * 0.5, W / 2 - CELL * 0.5];
-    var suspList = [];
-    [0, ROWS].forEach(function(rr){
-      var z = -D / 2 + rr * CELL;
-      suspX.forEach(function(x){
-        var e = makeSuspension('flat');
+    const suspX = [-W / 2 + CELL * 0.5, W / 2 - CELL * 0.5];
+    const suspList = [];
+    for (const r of [0, ROWS]) {
+      const z = -D / 2 + r * CELL;
+      for (const x of suspX) {
+        const e = makeSuspension('flat');
         e.position.set(x, 0, z);
         root.add(e);
         suspList.push(e);
-        var m = makeMiniHanger();
+        const m = makeMiniHanger();
         m.position.set(x, -CI_DROP_Y, z);
         root.add(m);
         suspList.push(m);
-      });
-    });
-    suspList.forEach(function(e, i){
-      var delay = (i / suspList.length) * 0.40;
-      animatables.push({ obj: e, baseY: e.position.y, offsetY: 0.95, delay: delay, span: 0.35 });
-    });
-
-    var yTopLip = -CI_DROP_Y - CI_TRI_H;
-    var yPanelTop = yTopLip - CI_LIP_H;
-    var yPanelCent = yPanelTop - CI_PANEL_T / 2;
-
-    var cassettesList = [];
-    for (var rr = 0; rr < ROWS; rr++) {
-      for (var cc = 0; cc < COLS; cc++) {
-        if (rr === MISSING.r && cc === MISSING.c) continue;
-        var cass = makeClipInCassette();
-        var cx = -W / 2 + CELL / 2 + cc * CELL;
-        var cz = -D / 2 + CELL / 2 + rr * CELL;
-        cass.position.set(cx, yPanelCent, cz);
-        root.add(cass);
-        cassettesList.push({ obj: cass, r: rr, c: cc });
       }
     }
-    cassettesList.sort(function(a, b){ return a.c !== b.c ? a.c - b.c : b.r - a.r; });
-    cassettesList.forEach(function(item, i){
-      var delay = 0.35 + (i / cassettesList.length) * 0.40;
-      animatables.push({ obj: item.obj, baseY: item.obj.position.y, offsetY: -0.60, delay: delay, span: 0.25 });
+    suspList.forEach((e, i) => {
+      const delay = (i / suspList.length) * 0.40;
+      animatables.push({ obj: e, baseY: e.position.y, offsetY: 0.95, delay, span: 0.35 });
     });
 
-    var firstSusp = suspList.filter(function(o){ return o.userData && o.userData.plateY !== undefined; })[0];
-    var plateY = firstSusp ? firstSusp.userData.plateY : 0.270;
+    const yTopLip = -CI_DROP_Y - CI_TRI_H;
+    const yPanelTop = yTopLip - CI_LIP_H;
+    const yPanelCent = yPanelTop - CI_PANEL_T / 2;
+
+    const cassettesList = [];
+    for (let r = 0; r < ROWS; r++) {
+      for (let c = 0; c < COLS; c++) {
+        if (r === MISSING.r && c === MISSING.c) continue;
+        const cass = makeClipInCassette();
+        const cx = -W / 2 + CELL / 2 + c * CELL;
+        const cz = -D / 2 + CELL / 2 + r * CELL;
+        cass.position.set(cx, yPanelCent, cz);
+        root.add(cass);
+        cassettesList.push({ obj: cass, r, c });
+      }
+    }
+    cassettesList.sort((a, b) => a.c !== b.c ? a.c - b.c : b.r - a.r);
+    cassettesList.forEach((item, i) => {
+      const delay = 0.35 + (i / cassettesList.length) * 0.40;
+      animatables.push({ obj: item.obj, baseY: item.obj.position.y, offsetY: -0.60, delay, span: 0.25 });
+    });
+
+    const firstSusp = suspList.find(o => o.userData && o.userData.plateY !== undefined);
+    const plateY = firstSusp ? firstSusp.userData.plateY : 0.270;
 
     addLabel(root, 'clipin', 'Кассета Clip-In',
       new THREE.Vector3(-W / 2 + CELL / 2 + (COLS - 1) * CELL, yPanelTop - CI_PANEL_T, -D / 2 + CELL / 2),
@@ -606,119 +599,121 @@
       new THREE.Vector3(suspX[0], plateY, -D / 2),
       new THREE.Vector3(suspX[0] - 0.32, plateY + 0.05, -D / 2 - 0.18));
 
-    return { root: root, animatables: animatables };
+    return { root, animatables };
   }
 
-  // ============== HOOK ON ==============
   function buildHookOn() {
-    var root = new THREE.Group();
-    var animatables = [];
+    const root = new THREE.Group();
+    const animatables = [];
 
     function makeUProfileTopPlate(length) {
-      var g = new THREE.Group();
-      var W_ = HO_U_W, T_ = HO_U_T;
-      var shape = new THREE.Shape();
+      const g = new THREE.Group();
+      const W_ = HO_U_W, T_ = HO_U_T;
+      const shape = new THREE.Shape();
       shape.moveTo(-length/2, -W_/2); shape.lineTo( length/2, -W_/2);
       shape.lineTo( length/2,  W_/2); shape.lineTo(-length/2,  W_/2); shape.lineTo(-length/2, -W_/2);
-      var holeXs = {}, halfLen = length / 2;
-      function addHoleX(v){ holeXs[v.toFixed(6)] = v; }
-      HO_CROSS_X.forEach(function(cx){
-        for (var k = 0; ; k++) {
-          var xL = cx - k * HO_U_STEP, xR = cx + k * HO_U_STEP;
-          var added = false;
-          if (xL >= -halfLen + HO_U_HOLE_R) { addHoleX(xL); added = true; }
-          if (xR <=  halfLen - HO_U_HOLE_R) { addHoleX(xR); added = true; }
+      const holeXs = new Set(), halfLen = length / 2;
+      for (const cx of HO_CROSS_X) {
+        for (let k = 0; ; k++) {
+          const xL = cx - k * HO_U_STEP, xR = cx + k * HO_U_STEP;
+          let added = false;
+          if (xL >= -halfLen + HO_U_HOLE_R) { holeXs.add(parseFloat(xL.toFixed(6))); added = true; }
+          if (xR <=  halfLen - HO_U_HOLE_R) { holeXs.add(parseFloat(xR.toFixed(6))); added = true; }
           if (!added) break;
         }
-      });
-      Object.keys(holeXs).forEach(function(key){
-        var hole = new THREE.Path();
-        hole.absarc(holeXs[key], 0, HO_U_HOLE_R, 0, Math.PI * 2, false);
+      }
+      for (const hx of holeXs) {
+        const hole = new THREE.Path();
+        hole.absarc(hx, 0, HO_U_HOLE_R, 0, Math.PI * 2, false);
         shape.holes.push(hole);
-      });
-      var geo = new THREE.ExtrudeGeometry(shape, { depth: T_, bevelEnabled: false, curveSegments: 16 });
+      }
+      const geo = new THREE.ExtrudeGeometry(shape, { depth: T_, bevelEnabled: false, curveSegments: 16 });
       geo.rotateX(-Math.PI / 2);
       g.add(new THREE.Mesh(geo, matGalv));
-      g.traverse(function(o){ if (o.isMesh){ o.castShadow = true; o.receiveShadow = true; } });
+      g.traverse(o => { if (o.isMesh) { o.castShadow = true; o.receiveShadow = true; } });
       return g;
     }
+
     function makeUProfileLeg(length) {
-      var g = new THREE.Group();
-      var leg = new THREE.Mesh(new THREE.BoxGeometry(length, HO_U_H, HO_U_T), matGalv);
+      const g = new THREE.Group();
+      const leg = new THREE.Mesh(new THREE.BoxGeometry(length, HO_U_H, HO_U_T), matGalv);
       leg.position.set(0, HO_U_H/2, 0);
       g.add(leg);
-      g.traverse(function(o){ if (o.isMesh){ o.castShadow = true; o.receiveShadow = true; } });
+      g.traverse(o => { if (o.isMesh) { o.castShadow = true; o.receiveShadow = true; } });
       return g;
     }
+
     function makeUProfile(length) {
-      var g = new THREE.Group();
-      var topPlate = makeUProfileTopPlate(length);
+      const g = new THREE.Group();
+      const topPlate = makeUProfileTopPlate(length);
       topPlate.position.set(0, HO_U_H - HO_U_T/2, 0);
       g.add(topPlate);
-      var legL = makeUProfileLeg(length); legL.position.set(0, 0, -HO_U_W/2 + HO_U_T/2); g.add(legL);
-      var legR = makeUProfileLeg(length); legR.position.set(0, 0,  HO_U_W/2 - HO_U_T/2); g.add(legR);
-      g.traverse(function(o){ if (o.isMesh){ o.castShadow = true; o.receiveShadow = true; } });
+      const legL = makeUProfileLeg(length); legL.position.set(0, 0, -HO_U_W/2 + HO_U_T/2); g.add(legL);
+      const legR = makeUProfileLeg(length); legR.position.set(0, 0,  HO_U_W/2 - HO_U_T/2); g.add(legR);
+      g.traverse(o => { if (o.isMesh) { o.castShadow = true; o.receiveShadow = true; } });
       return g;
     }
+
     function makeZProfileTopPlate(length) {
-      var g = new THREE.Group();
-      var TOP_W = HO_Z_TOP_W, T_ = HO_Z_T;
-      var shape = new THREE.Shape();
+      const g = new THREE.Group();
+      const TOP_W = HO_Z_TOP_W, T_ = HO_Z_T;
+      const shape = new THREE.Shape();
       shape.moveTo(-length/2, -TOP_W/2); shape.lineTo( length/2, -TOP_W/2);
       shape.lineTo( length/2,  TOP_W/2); shape.lineTo(-length/2,  TOP_W/2); shape.lineTo(-length/2, -TOP_W/2);
-      var holeZs = {}, halfLen = length / 2;
-      function addHoleZ(v){ holeZs[v.toFixed(6)] = v; }
-      HO_U_Z.forEach(function(cz){
-        for (var k = 0; ; k++) {
-          var zA = cz - k * HO_Z_STEP, zB = cz + k * HO_Z_STEP;
-          var added = false;
-          if (zA >= -halfLen + HO_Z_HOLE_R) { addHoleZ(zA); added = true; }
-          if (zB <=  halfLen - HO_Z_HOLE_R) { addHoleZ(zB); added = true; }
+      const holeZs = new Set(), halfLen = length / 2;
+      for (const cz of HO_U_Z) {
+        for (let k = 0; ; k++) {
+          const zA = cz - k * HO_Z_STEP, zB = cz + k * HO_Z_STEP;
+          let added = false;
+          if (zA >= -halfLen + HO_Z_HOLE_R) { holeZs.add(parseFloat(zA.toFixed(6))); added = true; }
+          if (zB <=  halfLen - HO_Z_HOLE_R) { holeZs.add(parseFloat(zB.toFixed(6))); added = true; }
           if (!added) break;
         }
-      });
-      Object.keys(holeZs).forEach(function(key){
-        var hole = new THREE.Path();
-        hole.absarc(holeZs[key], 0, HO_Z_HOLE_R, 0, Math.PI * 2, false);
+      }
+      for (const hz of holeZs) {
+        const hole = new THREE.Path();
+        hole.absarc(hz, 0, HO_Z_HOLE_R, 0, Math.PI * 2, false);
         shape.holes.push(hole);
-      });
-      var geo = new THREE.ExtrudeGeometry(shape, { depth: T_, bevelEnabled: false, curveSegments: 16 });
+      }
+      const geo = new THREE.ExtrudeGeometry(shape, { depth: T_, bevelEnabled: false, curveSegments: 16 });
       geo.rotateX(-Math.PI / 2);
       geo.rotateY(Math.PI / 2);
       g.add(new THREE.Mesh(geo, matGalv));
-      g.traverse(function(o){ if (o.isMesh){ o.castShadow = true; o.receiveShadow = true; } });
+      g.traverse(o => { if (o.isMesh) { o.castShadow = true; o.receiveShadow = true; } });
       return g;
     }
+
     function makeZProfile(length) {
-      var g = new THREE.Group();
-      var T_ = HO_Z_T, H_ = HO_Z_H, TOP_W = HO_Z_TOP_W, BOT_W = HO_Z_BOT_W;
-      var wall = new THREE.Mesh(new THREE.BoxGeometry(T_, H_, length), matGalv);
+      const g = new THREE.Group();
+      const T_ = HO_Z_T, H_ = HO_Z_H, TOP_W = HO_Z_TOP_W, BOT_W = HO_Z_BOT_W;
+      const wall = new THREE.Mesh(new THREE.BoxGeometry(T_, H_, length), matGalv);
       wall.position.set(0, H_/2, 0); g.add(wall);
-      var topPlate = makeZProfileTopPlate(length);
+      const topPlate = makeZProfileTopPlate(length);
       topPlate.position.set(TOP_W/2 - T_/2, H_ - T_/2, 0); g.add(topPlate);
-      var bot = new THREE.Mesh(new THREE.BoxGeometry(BOT_W, T_, length), matGalv);
+      const bot = new THREE.Mesh(new THREE.BoxGeometry(BOT_W, T_, length), matGalv);
       bot.position.set(-BOT_W/2 + T_/2, T_/2, 0); g.add(bot);
-      var hook = new THREE.Mesh(new THREE.BoxGeometry(T_, HO_Z_HOOK_H, length), matGalv);
+      const hook = new THREE.Mesh(new THREE.BoxGeometry(T_, HO_Z_HOOK_H, length), matGalv);
       hook.position.set(-BOT_W + T_/2, T_ + HO_Z_HOOK_H/2, 0); g.add(hook);
-      g.traverse(function(o){ if (o.isMesh){ o.castShadow = true; o.receiveShadow = true; } });
+      g.traverse(o => { if (o.isMesh) { o.castShadow = true; o.receiveShadow = true; } });
       return g;
     }
+
     function makeBoltWithNut(gripLength, headSeatLocalY, nutAssembledY, nutExplodedY) {
-      var g = new THREE.Group();
-      var rod = new THREE.Mesh(new THREE.CylinderGeometry(0.0038, 0.0038, gripLength, 14), matBolt);
+      const g = new THREE.Group();
+      const rod = new THREE.Mesh(new THREE.CylinderGeometry(0.0038, 0.0038, gripLength, 14), matBolt);
       rod.position.y = 0; rod.castShadow = true; g.add(rod);
-      var headH = 0.005;
-      var head = new THREE.Mesh(new THREE.CylinderGeometry(0.0068, 0.0068, headH, 6), matBolt);
+      const headH = 0.005;
+      const head = new THREE.Mesh(new THREE.CylinderGeometry(0.0068, 0.0068, headH, 6), matBolt);
       head.position.y = headSeatLocalY + headH / 2; head.castShadow = true; g.add(head);
-      var headCap = new THREE.Mesh(new THREE.CylinderGeometry(0.0058, 0.0068, 0.0012, 6), matBolt);
+      const headCap = new THREE.Mesh(new THREE.CylinderGeometry(0.0058, 0.0068, 0.0012, 6), matBolt);
       headCap.position.y = headSeatLocalY + headH + 0.0006; headCap.castShadow = true; g.add(headCap);
-      var nut = new THREE.Group();
-      var nutH = 0.005;
-      var nutBody = new THREE.Mesh(new THREE.CylinderGeometry(0.0068, 0.0068, nutH, 6), matBolt);
+      const nut = new THREE.Group();
+      const nutH = 0.005;
+      const nutBody = new THREE.Mesh(new THREE.CylinderGeometry(0.0068, 0.0068, nutH, 6), matBolt);
       nutBody.castShadow = true; nut.add(nutBody);
-      var nutChamfer = new THREE.Mesh(new THREE.CylinderGeometry(0.0058, 0.0068, 0.0012, 6), matBolt);
+      const nutChamfer = new THREE.Mesh(new THREE.CylinderGeometry(0.0058, 0.0068, 0.0012, 6), matBolt);
       nutChamfer.position.y = -nutH / 2 - 0.0006; nutChamfer.castShadow = true; nut.add(nutChamfer);
-      var nutHole = new THREE.Mesh(new THREE.CylinderGeometry(0.0039, 0.0039, nutH + 0.0002, 12), matSlot);
+      const nutHole = new THREE.Mesh(new THREE.CylinderGeometry(0.0039, 0.0039, nutH + 0.0002, 12), matSlot);
       nut.add(nutHole);
       nut.position.y = nutExplodedY; g.add(nut);
       g.userData.nut = nut;
@@ -726,119 +721,129 @@
       g.userData.nutExplodedY = nutExplodedY;
       return g;
     }
+
     function makeNewHoCassette() {
-      var g = new THREE.Group();
-      var S_ = HO_PANEL_SZ, T_ = HO_PANEL_T, H_ = HO_LIP_H, L_ = HO_LIP_L, F_ = HO_LIP_F;
-      var CUT_LEN = HO_CUT_LEN, CUT_DEPTH = HO_CUT_DEPTH;
-      var panel = new THREE.Mesh(new THREE.BoxGeometry(S_, T_, S_), matHoPanel);
+      const g = new THREE.Group();
+      const S_ = HO_PANEL_SZ, T_ = HO_PANEL_T, H_ = HO_LIP_H, L_ = HO_LIP_L, F_ = HO_LIP_F;
+      const CUT_LEN = HO_CUT_LEN, CUT_DEPTH = HO_CUT_DEPTH;
+      const panel = new THREE.Mesh(new THREE.BoxGeometry(S_, T_, S_), matHoPanel);
       g.add(panel);
-      function makeSimpleEdgeX(zSign) {
-        var eg = new THREE.Group();
-        var zPos = zSign * (S_ / 2 + T_ / 2);
-        var lowerH = H_ - CUT_DEPTH;
-        var lower = new THREE.Mesh(new THREE.BoxGeometry(S_ + 2 * T_, lowerH, T_), matHoPanel);
+      const makeSimpleEdgeX = (zSign) => {
+        const eg = new THREE.Group();
+        const zPos = zSign * (S_ / 2 + T_ / 2);
+        const lowerH = H_ - CUT_DEPTH;
+        const lower = new THREE.Mesh(new THREE.BoxGeometry(S_ + 2 * T_, lowerH, T_), matHoPanel);
         lower.position.set(0, T_ / 2 + lowerH / 2, zPos); eg.add(lower);
-        var upperLen = (S_ + 2 * T_) - 2 * CUT_LEN;
-        var upper = new THREE.Mesh(new THREE.BoxGeometry(upperLen, CUT_DEPTH, T_), matHoPanel);
+        const upperLen = (S_ + 2 * T_) - 2 * CUT_LEN;
+        const upper = new THREE.Mesh(new THREE.BoxGeometry(upperLen, CUT_DEPTH, T_), matHoPanel);
         upper.position.set(0, T_ / 2 + lowerH + CUT_DEPTH / 2, zPos); eg.add(upper);
         return eg;
-      }
+      };
       g.add(makeSimpleEdgeX(-1)); g.add(makeSimpleEdgeX(+1));
-      function makeBentEdgeZ(signX) {
-        var eg = new THREE.Group();
-        var shape = new THREE.Shape();
+      const makeBentEdgeZ = (signX) => {
+        const eg = new THREE.Group();
+        const shape = new THREE.Shape();
         shape.moveTo(0, 0); shape.lineTo(0, H_); shape.lineTo(L_, H_); shape.lineTo(L_, H_ - F_);
         shape.lineTo(L_ - T_, H_ - F_); shape.lineTo(L_ - T_, H_ - T_); shape.lineTo(T_, H_ - T_);
         shape.lineTo(T_, 0); shape.lineTo(0, 0);
-        var geo = new THREE.ExtrudeGeometry(shape, { depth: S_, bevelEnabled: false, curveSegments: 1 });
+        const geo = new THREE.ExtrudeGeometry(shape, { depth: S_, bevelEnabled: false, curveSegments: 1 });
         geo.translate(0, 0, -S_ / 2);
         eg.add(new THREE.Mesh(geo, matHoPanel));
         eg.position.set(signX * (S_ / 2), T_ / 2, 0);
         return eg;
-      }
+      };
       g.add(makeBentEdgeZ(-1)); g.add(makeBentEdgeZ(+1));
-      g.traverse(function(o){ if (o.isMesh){ o.castShadow = true; o.receiveShadow = true; } });
+      g.traverse(o => { if (o.isMesh) { o.castShadow = true; o.receiveShadow = true; } });
       return g;
     }
 
-    var zGroup = new THREE.Group();
-    HO_Z_X.forEach(function(x){ var prof = makeZProfile(D + 0.04); prof.position.set(x, 0, 0); zGroup.add(prof); });
+    const zGroup = new THREE.Group();
+    for (const x of HO_Z_X) {
+      const prof = makeZProfile(D + 0.04);
+      prof.position.set(x, 0, 0);
+      zGroup.add(prof);
+    }
     root.add(zGroup);
-    var uGroup = new THREE.Group();
-    HO_U_Z.forEach(function(z){ var prof = makeUProfile(W + 0.04); prof.position.set(0, HO_Z_H, z); uGroup.add(prof); });
+
+    const uGroup = new THREE.Group();
+    for (const z of HO_U_Z) {
+      const prof = makeUProfile(W + 0.04);
+      prof.position.set(0, HO_Z_H, z);
+      uGroup.add(prof);
+    }
     root.add(uGroup);
 
-    var boltHeadSeatY = HO_Z_H + HO_U_H;
-    var boltBottomSeatY = HO_Z_T;
-    var boltGripLength = boltHeadSeatY - boltBottomSeatY;
-    var boltCenterY = (boltHeadSeatY + boltBottomSeatY) / 2;
-    var headSeatLocalY = boltGripLength / 2;
-    var nutH = 0.005;
-    var nutAssembledWorldY = (HO_Z_H - HO_Z_T) - nutH / 2;
-    var nutAssembledLocalY = nutAssembledWorldY - boltCenterY;
-    var nutExplodedWorldY = nutAssembledWorldY - 0.10;
-    var nutExplodedLocalY = nutExplodedWorldY - boltCenterY;
+    const boltHeadSeatY = HO_Z_H + HO_U_H;
+    const boltBottomSeatY = HO_Z_T;
+    const boltGripLength = boltHeadSeatY - boltBottomSeatY;
+    const boltCenterY = (boltHeadSeatY + boltBottomSeatY) / 2;
+    const headSeatLocalY = boltGripLength / 2;
+    const nutH = 0.005;
+    const nutAssembledWorldY = (HO_Z_H - HO_Z_T) - nutH / 2;
+    const nutAssembledLocalY = nutAssembledWorldY - boltCenterY;
+    const nutExplodedWorldY = nutAssembledWorldY - 0.10;
+    const nutExplodedLocalY = nutExplodedWorldY - boltCenterY;
 
-    var boltsGroup = new THREE.Group();
-    var boltList = [];
-    HO_CROSS_X.forEach(function(x){
-      HO_U_Z.forEach(function(z){
-        var b = makeBoltWithNut(boltGripLength, headSeatLocalY, nutAssembledLocalY, nutExplodedLocalY);
+    const boltsGroup = new THREE.Group();
+    const boltList = [];
+    for (const x of HO_CROSS_X) {
+      for (const z of HO_U_Z) {
+        const b = makeBoltWithNut(boltGripLength, headSeatLocalY, nutAssembledLocalY, nutExplodedLocalY);
         b.position.set(x, boltCenterY, z);
         boltsGroup.add(b);
         boltList.push(b);
-      });
-    });
+      }
+    }
     root.add(boltsGroup);
 
-    boltList.forEach(function(b, i){
-      var delay = 0.15 + (i / boltList.length) * 0.25;
+    boltList.forEach((b, i) => {
+      const delay = 0.15 + (i / boltList.length) * 0.25;
       animatables.push({
-        obj: b, baseY: boltCenterY, offsetY: +0.50, delay: delay, span: 0.30,
-        custom: function(eased){
-          var nut = b.userData.nut;
-          var yA = b.userData.nutAssembledY, yE = b.userData.nutExplodedY;
+        obj: b, baseY: boltCenterY, offsetY: +0.50, delay, span: 0.30,
+        custom: (eased) => {
+          const nut = b.userData.nut;
+          const yA = b.userData.nutAssembledY, yE = b.userData.nutExplodedY;
           nut.position.y = yA + (yE - yA) * eased;
           nut.rotation.y = eased * Math.PI * 2 * 3;
         }
       });
     });
 
-    var suspX = [-W/2 + CELL/2, W/2 - CELL/2];
-    var suspList = [];
-    HO_U_Z.forEach(function(z){
-      suspX.forEach(function(x){
-        var e = makeSuspension('flat');
+    const suspX = [-W/2 + CELL/2, W/2 - CELL/2];
+    const suspList = [];
+    for (const z of HO_U_Z) {
+      for (const x of suspX) {
+        const e = makeSuspension('flat');
         e.position.set(x, HO_Z_H + HO_U_H, z);
         root.add(e);
         suspList.push(e);
-      });
-    });
-    suspList.forEach(function(e, i){
-      var delay = (i / suspList.length) * 0.40;
-      animatables.push({ obj: e, baseY: HO_Z_H + HO_U_H, offsetY: 0.95, delay: delay, span: 0.35 });
-    });
-
-    var yCassette = HO_Z_H - HO_PANEL_T / 2 - HO_LIP_H + HO_LIP_F - 0.026;
-    var panelsList = [];
-    for (var rr = 0; rr < ROWS; rr++) {
-      for (var cc = 0; cc < COLS; cc++) {
-        if (rr === MISSING.r && cc === MISSING.c) continue;
-        var panel = makeNewHoCassette();
-        var cx = -W/2 + CELL/2 + cc*CELL;
-        var cz = -D/2 + CELL/2 + rr*CELL;
-        panel.position.set(cx, yCassette, cz);
-        root.add(panel);
-        panelsList.push({ obj: panel, r: rr, c: cc });
       }
     }
-    panelsList.sort(function(a,b){ return a.c !== b.c ? a.c - b.c : b.r - a.r; });
-    panelsList.forEach(function(item, i){
-      var delay = 0.35 + (i / panelsList.length) * 0.40;
-      animatables.push({ obj: item.obj, baseY: item.obj.position.y, offsetY: -0.60, delay: delay, span: 0.25 });
+    suspList.forEach((e, i) => {
+      const delay = (i / suspList.length) * 0.40;
+      animatables.push({ obj: e, baseY: HO_Z_H + HO_U_H, offsetY: 0.95, delay, span: 0.35 });
     });
 
-    var plateY = suspList[0].userData.plateY || 0.270;
+    const yCassette = HO_Z_H - HO_PANEL_T / 2 - HO_LIP_H + HO_LIP_F - 0.026;
+    const panelsList = [];
+    for (let r = 0; r < ROWS; r++) {
+      for (let c = 0; c < COLS; c++) {
+        if (r === MISSING.r && c === MISSING.c) continue;
+        const panel = makeNewHoCassette();
+        const cx = -W/2 + CELL/2 + c*CELL;
+        const cz = -D/2 + CELL/2 + r*CELL;
+        panel.position.set(cx, yCassette, cz);
+        root.add(panel);
+        panelsList.push({ obj: panel, r, c });
+      }
+    }
+    panelsList.sort((a,b) => a.c !== b.c ? a.c - b.c : b.r - a.r);
+    panelsList.forEach((item, i) => {
+      const delay = 0.35 + (i / panelsList.length) * 0.40;
+      animatables.push({ obj: item.obj, baseY: item.obj.position.y, offsetY: -0.60, delay, span: 0.25 });
+    });
+
+    const plateY = suspList[0].userData.plateY || 0.270;
 
     addLabel(root, 'hookon', 'Панель Hook On',
       new THREE.Vector3(-W/2 + CELL/2 + (COLS-1)*CELL, yCassette, -D/2 + CELL/2),
@@ -856,98 +861,100 @@
       new THREE.Vector3(HO_CROSS_X[0], boltHeadSeatY, HO_U_Z[0]),
       new THREE.Vector3(HO_CROSS_X[0] + 0.30, 0.30, HO_U_Z[0] + 0.30));
 
-    return { root: root, animatables: animatables };
+    return { root, animatables };
   }
 
-  var MODELS = { layin: buildLayIn(), clipin: buildClipIn(), hookon: buildHookOn() };
-  var activeModel = 'layin';
+  const MODELS = {
+    layin: buildLayIn(),
+    clipin: buildClipIn(),
+    hookon: buildHookOn(),
+  };
+  let activeModel = 'layin';
 
-  var labelsVisible = false;
-  var labelsReady = false;
+  let labelsVisible = false;
+  let labelsReady = false;
 
   function applyLabelsVisibility() {
-    var shouldShow = labelsVisible && labelsReady;
-    allLabelEls.forEach(function(item){
+    const shouldShow = labelsVisible && labelsReady;
+    for (const item of allLabelEls) {
       item.el.style.opacity = (shouldShow && item.modelKey === activeModel) ? '1' : '0';
-    });
-    for (var key in allLabelLines) {
-      allLabelLines[key].forEach(function(line){
+    }
+    for (const key in allLabelLines) {
+      for (const line of allLabelLines[key]) {
         line.userData.targetOpacity = (shouldShow && key === activeModel) ? 0.45 : 0;
-      });
+      }
     }
   }
 
-  for (var key in MODELS) {
+  for (const key in MODELS) {
     MODELS[key].root.visible = (key === activeModel);
     scene.add(MODELS[key].root);
   }
   applyLabelsVisibility();
 
-  var autoCycleEnabled = true;
-  var forcedState = null;
-  var cycleT = 0;
-  var explodeCurrent = 0;
+  let autoCycleEnabled = true;
+  let forcedState = null;
+  let cycleT = 0;
+  let explodeCurrent = 0;
 
   function injectUI() {
     if (document.getElementById('cubica-ui')) return;
-    var style = document.createElement('style');
-    style.textContent = [
-      '#cubica-ui { position:absolute; top:0; left:0; right:0; bottom:0;',
-      '  display:flex; flex-direction:column; align-items:center; justify-content:space-between;',
-      '  z-index:5; pointer-events:none; user-select:none;',
-      '  font-family:-apple-system,"Segoe UI",Roboto,Arial,sans-serif;',
-      '  padding:10px 10px 12px 10px; margin:0; }',
-      '#cubica-controls { display:flex; border-radius:2px; overflow:hidden; box-shadow:0 2px 10px rgba(0,0,0,.10); pointer-events:auto; max-width:100%; background:rgba(255,255,255,0.9); flex-wrap:nowrap; justify-content:center; margin:0; }',
-      '#cubica-tabs { display:flex; background:#fff; border-radius:2px; overflow:hidden; box-shadow:0 -2px 10px rgba(0,0,0,.08); pointer-events:auto; width:100%; max-width:800px; flex-wrap:nowrap; justify-content:center; margin:0 auto; }',
-      '#cubica-tabs button, #cubica-controls button { all:unset; cursor:pointer; font-weight:500; color:#4a4f55; background:#fff; border-right:1px solid #d8d5d0; border-bottom:1px solid #d8d5d0; transition:background .18s, color .18s; white-space:nowrap; text-align:center; box-sizing:border-box; }',
-      '#cubica-tabs button { flex:1 1 33%; padding:8px 14px; font-size:12px; }',
-      '#cubica-controls button { flex:0 1 auto; padding:6px 12px; font-size:11px; color:#5a6068; }',
-      '#cubica-tabs button:last-child, #cubica-controls button:last-child { border-right:0; }',
-      '#cubica-tabs button:hover, #cubica-controls button:hover { background:#f3f1ed; }',
-      '#cubica-tabs button.active { background:#9c1c1c; color:#fff; font-weight:600; }',
-      '#cubica-controls button.active { background:#e3d9cf; color:#9c1c1c; font-weight:600; }',
-      '#cubica-controls button[data-act="labels"] { border-left:1px solid #d8d5d0; color:#9c1c1c; font-weight:600; }',
-      '@media (max-width:768px) {',
-      '  #cubica-ui { padding:6px 6px 8px 6px; }',
-      '  #cubica-tabs button { padding:7px 10px; font-size:11px; }',
-      '  #cubica-controls button { padding:6px 8px; font-size:10px; }',
-      '}',
-      '@media (max-width:480px) {',
-      '  #cubica-ui { padding:4px 4px 6px 4px; }',
-      '  #cubica-tabs { max-width:100%; }',
-      '  #cubica-tabs button { flex:1 1 100%; padding:5px 8px; font-size:10px; border-right:0; border-bottom:1px solid #d8d5d0; }',
-      '  #cubica-tabs button:last-child { border-bottom:0; }',
-      '  #cubica-controls { flex-wrap:nowrap; }',
-      '  #cubica-controls button { flex:1 1 20%; padding:5px 3px; font-size:9px; }',
-      '}'
-    ].join('\n');
-    document.head.appendChild(style);
+    const style = document.createElement('style');
+    style.textContent = `
+      #cubica-ui { position: absolute; left: 0; right: 0; top: 0; bottom: 0;
+        display: flex; flex-direction: column; align-items: center; justify-content: space-between;
+        z-index: 5; pointer-events: none; user-select: none;
+        font-family: -apple-system, "Segoe UI", Roboto, Arial, sans-serif;
+        padding: 18px 12px 24px 12px; }
+      #cubica-controls { display: flex; border-radius: 2px; overflow: hidden; box-shadow: 0 4px 18px rgba(0,0,0,.12); pointer-events: auto; max-width: 100%; background: rgba(255,255,255,0.85); flex-wrap: wrap; justify-content: center; }
+      #cubica-tabs { display: flex; background: #fff; border-radius: 2px; overflow: hidden; box-shadow: 0 -4px 18px rgba(0,0,0,.10); pointer-events: auto; width: 100%; max-width: 860px; flex-wrap: wrap; justify-content: center; }
+      #cubica-tabs button, #cubica-controls button { all: unset; cursor: pointer; font-weight: 500; color: #4a4f55; background: #fff; border-right: 1px solid #d8d5d0; border-bottom: 1px solid #d8d5d0; transition: background .18s, color .18s; white-space: nowrap; text-align: center; box-sizing: border-box; }
+      #cubica-tabs button { flex: 1 1 33%; padding: 14px 26px; font-size: 14px; }
+      #cubica-controls button { flex: 1 1 auto; padding: 8px 16px; font-size: 12px; color:#5a6068; }
+      #cubica-tabs button:last-child, #cubica-controls button:last-child { border-right: 0; }
+      #cubica-tabs button:hover, #cubica-controls button:hover { background: #f3f1ed; }
+      #cubica-tabs button.active { background: #9c1c1c; color: #fff; font-weight: 600; }
+      #cubica-controls button.active { background: #e3d9cf; color: #9c1c1c; font-weight: 600; }
+      #cubica-controls button[data-act="labels"] { border-left: 1px solid #d8d5d0; color: #9c1c1c; font-weight: 600; }
 
-    var ui = document.createElement('div');
+      @media (max-width: 768px) {
+        #cubica-ui { padding: 8px 6px 12px 6px; }
+        #cubica-tabs button { padding: 10px 12px; font-size: 12px; flex: 1 1 33%; }
+        #cubica-controls button { padding: 7px 10px; font-size: 11px; }
+      }
+      @media (max-width: 480px) {
+        #cubica-ui { padding: 6px 4px 10px 4px; }
+        #cubica-tabs { max-width: 100%; }
+        #cubica-tabs button { flex: 1 1 100%; padding: 8px 8px; font-size: 11px; }
+        #cubica-controls button { flex: 1 1 33%; padding: 6px 4px; font-size: 10px; }
+      }
+    `;
+    document.head.appendChild(style);
+    const ui = document.createElement('div');
     ui.id = 'cubica-ui';
-    ui.innerHTML =
-      '<div id="cubica-tabs">' +
-        '<button data-sys="layin" class="active">Открытая Lay-In</button>' +
-        '<button data-sys="clipin">Закрытая Clip-In</button>' +
-        '<button data-sys="hookon">Система Hook On</button>' +
-      '</div>' +
-      '<div id="cubica-controls">' +
-        '<button data-act="assemble">Собрать</button>' +
-        '<button data-act="explode">Разобрать</button>' +
-        '<button data-act="pause" class="active">Пауза</button>' +
-        '<button data-act="play">Play</button>' +
-        '<button data-act="labels">Названия</button>' +
-      '</div>';
+    ui.innerHTML = `
+      <div id="cubica-tabs">
+        <button data-sys="layin" class="active">Открытая Lay-In</button>
+        <button data-sys="clipin">Закрытая Clip-In</button>
+        <button data-sys="hookon">Система Hook On</button>
+      </div>
+      <div id="cubica-controls">
+        <button data-act="assemble">Собрать</button>
+        <button data-act="explode">Разобрать</button>
+        <button data-act="pause" class="active">Пауза</button>
+        <button data-act="play">Play</button>
+        <button data-act="labels">Названия</button>
+      </div>
+    `;
     container.appendChild(ui);
 
-    var btnLabels = ui.querySelector('#cubica-controls button[data-act="labels"]');
-    var btnA = ui.querySelector('#cubica-controls button[data-act="assemble"]');
-    var btnE = ui.querySelector('#cubica-controls button[data-act="explode"]');
-    var btnP = ui.querySelector('#cubica-controls button[data-act="pause"]');
-    var btnPlay = ui.querySelector('#cubica-controls button[data-act="play"]');
+    const btnLabels = ui.querySelector('#cubica-controls button[data-act="labels"]');
+    const btnA = ui.querySelector('#cubica-controls button[data-act="assemble"]');
+    const btnE = ui.querySelector('#cubica-controls button[data-act="explode"]');
+    const btnP = ui.querySelector('#cubica-controls button[data-act="pause"]');
+    const btnPlay = ui.querySelector('#cubica-controls button[data-act="play"]');
 
-    function hideLabelsThen(callback, delayMs) {
-      delayMs = delayMs || 400;
+    function hideLabelsThen(callback, delayMs = 400) {
       if (!labelsVisible && !labelsReady) { callback(); return; }
       labelsVisible = false;
       labelsReady = false;
@@ -956,7 +963,7 @@
       setTimeout(callback, delayMs);
     }
 
-    btnLabels.addEventListener('click', function(e){
+    btnLabels.addEventListener('click', (e) => {
       e.stopPropagation();
       if (!labelsVisible) {
         labelsVisible = true;
@@ -966,15 +973,18 @@
         forcedState = 'assembled';
         btnA.classList.add('active'); btnE.classList.remove('active');
         btnP.classList.remove('active'); btnPlay.classList.remove('active');
-        setTimeout(function(){
-          if (labelsVisible) { labelsReady = true; applyLabelsVisibility(); }
+        setTimeout(() => {
+          if (labelsVisible) {
+            labelsReady = true;
+            applyLabelsVisibility();
+          }
         }, 900);
       } else {
         labelsVisible = false;
         labelsReady = false;
         btnLabels.classList.remove('active');
         applyLabelsVisibility();
-        setTimeout(function(){
+        setTimeout(() => {
           if (!labelsVisible) {
             forcedState = null;
             autoCycleEnabled = true;
@@ -986,14 +996,16 @@
       }
     });
 
-    ui.querySelectorAll('#cubica-tabs button').forEach(function(btn){
-      btn.addEventListener('click', function(){
-        var name = btn.dataset.sys;
+    ui.querySelectorAll('#cubica-tabs button').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const name = btn.dataset.sys;
         if (name === activeModel) return;
         activeModel = name;
-        for (var k in MODELS) MODELS[k].root.visible = (k === activeModel);
+        for (const key in MODELS) {
+          MODELS[key].root.visible = (key === activeModel);
+        }
         applyLabelsVisibility();
-        ui.querySelectorAll('#cubica-tabs button').forEach(function(b){
+        ui.querySelectorAll('#cubica-tabs button').forEach(b => {
           b.classList.toggle('active', b.dataset.sys === name);
         });
       });
@@ -1008,7 +1020,7 @@
       btnE.classList.add('active'); btnA.classList.remove('active'); btnP.classList.remove('active'); btnPlay.classList.remove('active');
     }
     function doPause() {
-      var isPaused = btnP.classList.contains('active');
+      const isPaused = btnP.classList.contains('active');
       if (isPaused) {
         btnP.classList.remove('active'); autoCycleEnabled = true; forcedState = null;
         btnA.classList.remove('active'); btnE.classList.remove('active'); btnPlay.classList.remove('active');
@@ -1023,10 +1035,10 @@
       btnA.classList.remove('active'); btnE.classList.remove('active');
     }
 
-    ui.querySelectorAll('#cubica-controls button').forEach(function(btn){
+    ui.querySelectorAll('#cubica-controls button').forEach(btn => {
       if (btn.dataset.act === 'labels') return;
-      btn.addEventListener('click', function(){
-        var act = btn.dataset.act;
+      btn.addEventListener('click', () => {
+        const act = btn.dataset.act;
         if (act === 'assemble') hideLabelsThen(doAssemble);
         else if (act === 'explode') hideLabelsThen(doExplode);
         else if (act === 'pause') hideLabelsThen(doPause);
@@ -1037,17 +1049,17 @@
   injectUI();
 
   function onResize() {
-    var w = container.clientWidth, h = container.clientHeight;
+    const w = container.clientWidth, h = container.clientHeight;
     if (w === 0 || h === 0) return;
     renderer.setSize(w, h, false);
     labelRenderer.setSize(w, h, false);
     camera.aspect = w / h;
-    var vFov = camera.fov * Math.PI / 180;
-    var hFov = 2 * Math.atan(Math.tan(vFov / 2) * camera.aspect);
-    var distV = MODEL_RADIUS / Math.sin(vFov / 2);
-    var distH = MODEL_RADIUS / Math.sin(hFov / 2);
-    var dist = Math.max(distV, distH) * 1.05 * ZOOM_FACTOR;
-    var dir = camera.position.clone().sub(controls.target);
+    const vFov = camera.fov * Math.PI / 180;
+    const hFov = 2 * Math.atan(Math.tan(vFov / 2) * camera.aspect);
+    const distV = MODEL_RADIUS / Math.sin(vFov / 2);
+    const distH = MODEL_RADIUS / Math.sin(hFov / 2);
+    const dist = Math.max(distV, distH) * 1.05 * ZOOM_FACTOR;
+    let dir = camera.position.clone().sub(controls.target);
     if (dir.lengthSq() < 0.0001) dir = VIEW_DIR.clone(); else dir.normalize();
     controls.target.copy(MODEL_CENTER);
     camera.position.copy(MODEL_CENTER).addScaledVector(dir, dist);
@@ -1055,68 +1067,42 @@
     camera.updateProjectionMatrix();
   }
   window.addEventListener('resize', onResize);
-  window.addEventListener('orientationchange', function(){ setTimeout(onResize, 200); });
-  if (typeof ResizeObserver !== 'undefined') {
-    var ro = new ResizeObserver(function(){ onResize(); });
-    ro.observe(container);
-  }
+  window.addEventListener('orientationchange', () => setTimeout(onResize, 200));
+  if (typeof ResizeObserver !== 'undefined') { const ro = new ResizeObserver(() => onResize()); ro.observe(container); }
   setTimeout(onResize, 100); setTimeout(onResize, 500); setTimeout(onResize, 1500); onResize();
 
-  var fsBtn = document.getElementById('cubica-fs-btn');
-  var fsPath = document.getElementById('cubica-fs-path');
-  var ICON_EXPAND = 'M4 9V5a1 1 0 0 1 1-1h4 M20 9V5a1 1 0 0 0-1-1h-4 M4 15v4a1 1 0 0 0 1 1h4 M20 15v4a1 1 0 0 1-1 1h-4';
-  var ICON_COLLAPSE = 'M9 4v4a1 1 0 0 1-1 1H4 M15 4v4a1 1 0 0 0 1 1h4 M9 20v-4a1 1 0 0 0-1-1H4 M15 20v-4a1 1 0 0 1 1-1h4';
-  function setIcon(isFull) {
-    if (fsPath) fsPath.setAttribute('d', isFull ? ICON_COLLAPSE : ICON_EXPAND);
-    if (fsBtn) fsBtn.setAttribute('title', isFull ? 'Свернуть' : 'Во весь экран');
-  }
+  const fsBtn = document.getElementById('cubica-fs-btn');
+  const fsPath = document.getElementById('cubica-fs-path');
+  const ICON_EXPAND = 'M4 9V5a1 1 0 0 1 1-1h4 M20 9V5a1 1 0 0 0-1-1h-4 M4 15v4a1 1 0 0 0 1 1h4 M20 15v4a1 1 0 0 1-1 1h-4';
+  const ICON_COLLAPSE = 'M9 4v4a1 1 0 0 1-1 1H4 M15 4v4a1 1 0 0 0 1 1h4 M9 20v-4a1 1 0 0 0-1-1H4 M15 20v-4a1 1 0 0 1 1-1h4';
+  function setIcon(isFull) { if (fsPath) fsPath.setAttribute('d', isFull ? ICON_COLLAPSE : ICON_EXPAND); if (fsBtn) fsBtn.setAttribute('title', isFull ? 'Свернуть' : 'Во весь экран'); }
   function enterFs() {
-    var req = container.requestFullscreen || container.webkitRequestFullscreen || container.msRequestFullscreen;
-    if (req) {
-      Promise.resolve(req.call(container)).catch(function(){
-        container.classList.add('cubica-fallback-fs');
-        document.body.style.overflow = 'hidden';
-        setTimeout(onResize, 50);
-        setIcon(true);
-      });
-    } else {
-      container.classList.add('cubica-fallback-fs');
-      document.body.style.overflow = 'hidden';
-      setTimeout(onResize, 50);
-      setIcon(true);
-    }
+    const req = container.requestFullscreen || container.webkitRequestFullscreen || container.msRequestFullscreen;
+    if (req) Promise.resolve(req.call(container)).catch(() => { container.classList.add('cubica-fallback-fs'); document.body.style.overflow = 'hidden'; setTimeout(onResize, 50); setIcon(true); });
+    else { container.classList.add('cubica-fallback-fs'); document.body.style.overflow = 'hidden'; setTimeout(onResize, 50); setIcon(true); }
   }
   function exitFs() {
-    var exit = document.exitFullscreen || document.webkitExitFullscreen || document.msExitFullscreen;
+    const exit = document.exitFullscreen || document.webkitExitFullscreen || document.msExitFullscreen;
     if (document.fullscreenElement || document.webkitFullscreenElement) { if (exit) exit.call(document); }
-    container.classList.remove('cubica-fallback-fs');
-    document.body.style.overflow = '';
-    setTimeout(onResize, 50);
-    setIcon(false);
+    container.classList.remove('cubica-fallback-fs'); document.body.style.overflow = '';
+    setTimeout(onResize, 50); setIcon(false);
   }
-  function isFull() {
-    return document.fullscreenElement === container ||
-           document.webkitFullscreenElement === container ||
-           container.classList.contains('cubica-fallback-fs');
-  }
-  if (fsBtn) fsBtn.addEventListener('click', function(){ isFull() ? exitFs() : enterFs(); });
-  ['fullscreenchange','webkitfullscreenchange','msfullscreenchange'].forEach(function(ev){
-    document.addEventListener(ev, function(){
-      var full = document.fullscreenElement === container || document.webkitFullscreenElement === container;
-      setIcon(full);
-      setTimeout(onResize, 100);
+  function isFull() { return document.fullscreenElement === container || document.webkitFullscreenElement === container || container.classList.contains('cubica-fallback-fs'); }
+  if (fsBtn) fsBtn.addEventListener('click', () => isFull() ? exitFs() : enterFs());
+  ['fullscreenchange','webkitfullscreenchange','msfullscreenchange'].forEach(ev => {
+    document.addEventListener(ev, () => {
+      const full = document.fullscreenElement === container || document.webkitFullscreenElement === container;
+      setIcon(full); setTimeout(onResize, 100);
     });
   });
-  document.addEventListener('keydown', function(e){
-    if (e.key === 'Escape' && container.classList.contains('cubica-fallback-fs')) exitFs();
-  });
+  document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && container.classList.contains('cubica-fallback-fs')) exitFs(); });
 
-  var inView = true;
-  var io = new IntersectionObserver(function(entries){ inView = entries[0].isIntersecting; }, { threshold: 0 });
+  let inView = true;
+  const io = new IntersectionObserver((entries) => { inView = entries[0].isIntersecting; }, { threshold: 0 });
   io.observe(container);
 
-  var T_HOLD_ASM = 3.0, T_EXPLODE = 3.5, T_HOLD_EXP = 2.5, T_ASSEMBLE = 3.5, T_HOLD_END = 1.5;
-  var CYCLE_DUR = T_HOLD_ASM + T_EXPLODE + T_HOLD_EXP + T_ASSEMBLE + T_HOLD_END;
+  const T_HOLD_ASM = 3.0, T_EXPLODE = 3.5, T_HOLD_EXP = 2.5, T_ASSEMBLE = 3.5, T_HOLD_END = 1.5;
+  const CYCLE_DUR = T_HOLD_ASM + T_EXPLODE + T_HOLD_EXP + T_ASSEMBLE + T_HOLD_END;
 
   function updateTimeline(dt) {
     if (forcedState === 'assembled') {
@@ -1131,7 +1117,7 @@
     }
     if (!autoCycleEnabled) return;
     cycleT = (cycleT + dt) % CYCLE_DUR;
-    var target;
+    let target;
     if (cycleT < T_HOLD_ASM) target = 0;
     else if (cycleT < T_HOLD_ASM + T_EXPLODE) target = (cycleT - T_HOLD_ASM) / T_EXPLODE;
     else if (cycleT < T_HOLD_ASM + T_EXPLODE + T_HOLD_EXP) target = 1;
@@ -1140,32 +1126,32 @@
     explodeCurrent = target;
   }
 
-  var clock = new THREE.Clock();
+  const clock = new THREE.Clock();
   function animate() {
     requestAnimationFrame(animate);
     if (!inView || document.hidden) { clock.getDelta(); return; }
-    var dt = clock.getDelta();
+    const dt = clock.getDelta();
     updateTimeline(dt);
-    var inst = MODELS[activeModel];
-    inst.animatables.forEach(function(p){
-      var raw = (explodeCurrent - p.delay) / p.span;
-      var t = Math.max(0, Math.min(1, raw));
-      var eased = easeInOutCubic(t);
+    const inst = MODELS[activeModel];
+    for (const p of inst.animatables) {
+      const raw = (explodeCurrent - p.delay) / p.span;
+      const t = Math.max(0, Math.min(1, raw));
+      const eased = easeInOutCubic(t);
       p.obj.position.y = p.baseY + p.offsetY * eased;
       if (p.custom) p.custom(eased);
-    });
+    }
 
-    for (var key2 in allLabelLines) {
-      allLabelLines[key2].forEach(function(line){
-        var target = line.userData.targetOpacity || 0;
-        var cur = line.material.opacity;
+    for (const key in allLabelLines) {
+      for (const line of allLabelLines[key]) {
+        const target = line.userData.targetOpacity || 0;
+        const cur = line.material.opacity;
         if (Math.abs(cur - target) > 0.002) {
           line.material.opacity = cur + (target - cur) * Math.min(1, dt * 6);
         } else if (cur !== target) {
           line.material.opacity = target;
         }
         line.visible = line.material.opacity > 0.003;
-      });
+      }
     }
 
     controls.update();
@@ -1173,7 +1159,7 @@
     labelRenderer.render(scene, camera);
   }
   animate();
-})();
+}
 </script>
 </body>
 </html>
