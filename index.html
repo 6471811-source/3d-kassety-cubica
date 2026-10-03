@@ -68,7 +68,7 @@ import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { CSS2DRenderer, CSS2DObject } from 'three/addons/renderers/CSS2DRenderer.js';
 
-console.log('[Cubica 3D] v12.16 — fit 431px');
+console.log('[Cubica 3D] v12.17 — centered');
 startCubica3D();
 
 function startCubica3D() {
@@ -118,17 +118,16 @@ function startCubica3D() {
 
   const isMobile = window.innerWidth <= 768;
   const isSmall  = window.innerWidth <= 480;
-  // Модель сжимаем, чтобы влезла в 431px (за вычетом места под вкладки и кнопки)
-  let MODEL_RADIUS = 1.55;
-  if (isMobile) MODEL_RADIUS = 1.75;
-  if (isSmall)  MODEL_RADIUS = 1.9;
+  let MODEL_RADIUS = 1.05;
+  if (isMobile) MODEL_RADIUS = 1.25;
+  if (isSmall)  MODEL_RADIUS = 1.35;
 
   const scene = new THREE.Scene();
   scene.background = null;
   scene.fog = new THREE.Fog(0xf4f2ee, 7, 16);
 
-  // Смещение центра вверх — чтобы модель не заходила на кнопки снизу
-  const MODEL_CENTER = new THREE.Vector3(0.15, 0.45, 0);
+  // === ЦЕНТР МОДЕЛИ — ровно по центру ===
+  const MODEL_CENTER = new THREE.Vector3(0, 0, 0);
   const ZOOM_FACTOR = 0.72;
   const VIEW_DIR = new THREE.Vector3(0.62, 0.50, 0.60).normalize();
 
@@ -878,12 +877,12 @@ function startCubica3D() {
         display: flex; flex-direction: column; align-items: center; justify-content: space-between;
         z-index: 5; pointer-events: none; user-select: none;
         font-family: -apple-system, "Segoe UI", Roboto, Arial, sans-serif;
-        padding: 8px 10px 10px 10px; }
-      #cubica-controls { display: flex; border-radius: 2px; overflow: hidden; box-shadow: 0 2px 10px rgba(0,0,0,.10); pointer-events: auto; max-width: 100%; background: rgba(255,255,255,0.9); flex-wrap: wrap; justify-content: center; }
-      #cubica-tabs { display: flex; background: #fff; border-radius: 2px; overflow: hidden; box-shadow: 0 -2px 10px rgba(0,0,0,.08); pointer-events: auto; width: 100%; max-width: 800px; flex-wrap: wrap; justify-content: center; }
+        padding: 10px 10px 12px 10px; }
+      #cubica-controls { display: flex; border-radius: 2px; overflow: hidden; box-shadow: 0 2px 10px rgba(0,0,0,.10); pointer-events: auto; max-width: 100%; background: rgba(255,255,255,0.9); flex-wrap: nowrap; justify-content: center; }
+      #cubica-tabs { display: flex; background: #fff; border-radius: 2px; overflow: hidden; box-shadow: 0 -2px 10px rgba(0,0,0,.08); pointer-events: auto; width: 100%; max-width: 800px; flex-wrap: nowrap; justify-content: center; }
       #cubica-tabs button, #cubica-controls button { all: unset; cursor: pointer; font-weight: 500; color: #4a4f55; background: #fff; border-right: 1px solid #d8d5d0; border-bottom: 1px solid #d8d5d0; transition: background .18s, color .18s; white-space: nowrap; text-align: center; box-sizing: border-box; }
-      #cubica-tabs button { flex: 1 1 33%; padding: 7px 14px; font-size: 12px; }
-      #cubica-controls button { flex: 1 1 auto; padding: 5px 10px; font-size: 10px; color:#5a6068; }
+      #cubica-tabs button { flex: 1 1 33%; padding: 8px 14px; font-size: 12px; }
+      #cubica-controls button { flex: 0 1 auto; padding: 6px 12px; font-size: 11px; color:#5a6068; }
       #cubica-tabs button:last-child, #cubica-controls button:last-child { border-right: 0; }
       #cubica-tabs button:hover, #cubica-controls button:hover { background: #f3f1ed; }
       #cubica-tabs button.active { background: #9c1c1c; color: #fff; font-weight: 600; }
@@ -892,14 +891,16 @@ function startCubica3D() {
 
       @media (max-width: 768px) {
         #cubica-ui { padding: 6px 6px 8px 6px; }
-        #cubica-tabs button { padding: 6px 9px; font-size: 11px; flex: 1 1 33%; }
-        #cubica-controls button { padding: 5px 7px; font-size: 10px; }
+        #cubica-tabs button { padding: 7px 10px; font-size: 11px; }
+        #cubica-controls button { padding: 6px 8px; font-size: 10px; }
       }
       @media (max-width: 480px) {
         #cubica-ui { padding: 4px 4px 6px 4px; }
         #cubica-tabs { max-width: 100%; }
-        #cubica-tabs button { flex: 1 1 100%; padding: 5px 8px; font-size: 10px; }
-        #cubica-controls button { flex: 1 1 33%; padding: 4px 3px; font-size: 9px; }
+        #cubica-tabs button { flex: 1 1 100%; padding: 5px 8px; font-size: 10px; border-right: 0; border-bottom: 1px solid #d8d5d0; }
+        #cubica-tabs button:last-child { border-bottom: 0; }
+        #cubica-controls { flex-wrap: nowrap; }
+        #cubica-controls button { flex: 1 1 20%; padding: 5px 3px; font-size: 9px; }
       }
     `;
     document.head.appendChild(style);
