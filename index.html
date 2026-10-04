@@ -2,12 +2,12 @@
 <html lang="ru">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Cubica 3D — v12.9</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>Cubica 3D — v13.0</title>
 <style>
   * { box-sizing: border-box; }
   html, body { margin: 0; padding: 0; height: 100%; background: #f4f2ee; }
-  #cubica-3d { position: relative; width: 100%; max-width: 1200px; height: 100%; min-height: 100vh; margin: 0 auto; overflow: hidden; background: #f4f2ee; }
+  #cubica-3d { position: relative; width: 100%; max-width: 1200px; height: 100%; min-height: 100%; margin: 0 auto; overflow: hidden; background: #f4f2ee; }
   #cubica-3d.cubica-fallback-fs { position: fixed !important; inset: 0 !important; z-index: 99999; max-width: none; height: 100vh; width: 100vw; }
   .label-3d {
     color: #2a2f35;
@@ -52,7 +52,7 @@ import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { CSS2DRenderer, CSS2DObject } from 'three/addons/renderers/CSS2DRenderer.js';
 
-console.log('[Cubica 3D] v12.9');
+console.log('[Cubica 3D] v13.0');
 startCubica3D();
 
 function startCubica3D() {
@@ -114,7 +114,7 @@ function startCubica3D() {
   camera.lookAt(MODEL_CENTER);
 
   const renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: 'high-performance' });
-  renderer.setPixelRatio(Math.min(window.devicePixelRatio, 1.5));
+  renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
   renderer.setSize(container.clientWidth, container.clientHeight, false);
   Object.assign(renderer.domElement.style, { width:'100%', height:'100%', display:'block', position:'absolute', inset:'0' });
   renderer.shadowMap.enabled = true;
@@ -1060,9 +1060,10 @@ function startCubica3D() {
     camera.lookAt(MODEL_CENTER);
     camera.updateProjectionMatrix();
   }
-  window.addEventListener('resize', onResize);
+  window.addEventListener('resize', () => requestAnimationFrame(onResize));
+  window.addEventListener('scroll', () => requestAnimationFrame(onResize), { passive: true });
   window.addEventListener('orientationchange', () => setTimeout(onResize, 200));
-  if (typeof ResizeObserver !== 'undefined') { const ro = new ResizeObserver(() => onResize()); ro.observe(container); }
+  if (typeof ResizeObserver !== 'undefined') { const ro = new ResizeObserver(() => requestAnimationFrame(onResize)); ro.observe(container); }
   setTimeout(onResize, 100); setTimeout(onResize, 500); setTimeout(onResize, 1500); onResize();
 
   const fsBtn = document.getElementById('cubica-fs-btn');
