@@ -3,11 +3,11 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-<title>Cubica 3D — v13.1</title>
+<title>Cubica 3D — v13.2</title>
 <style>
   * { box-sizing: border-box; }
-  html, body { margin: 0; padding: 0; height: 100%; background: #f4f2ee; }
-  #cubica-3d { position: relative; width: 100%; max-width: 1200px; height: 100vh; min-height: 100vh; margin: 0 auto; overflow: hidden; background: #f4f2ee; }
+  html, body { margin: 0; padding: 0; width: 100%; height: 100%; background: #f4f2ee; overflow: hidden; }
+  #cubica-3d { position: relative; width: 100%; height: 100%; margin: 0 auto; overflow: hidden; background: #f4f2ee; }
   #cubica-3d.cubica-fallback-fs { position: fixed !important; inset: 0 !important; z-index: 99999; max-width: none; height: 100vh; width: 100vw; }
   .label-3d {
     color: #2a2f35;
@@ -52,7 +52,7 @@ import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { CSS2DRenderer, CSS2DObject } from 'three/addons/renderers/CSS2DRenderer.js';
 
-console.log('[Cubica 3D] v13.1');
+console.log('[Cubica 3D] v13.2');
 startCubica3D();
 
 function startCubica3D() {
@@ -109,13 +109,13 @@ function startCubica3D() {
   const ZOOM_FACTOR = 0.78;
   const VIEW_DIR = new THREE.Vector3(0.62, 0.50, 0.60).normalize();
 
-  const camera = new THREE.PerspectiveCamera(45, container.clientWidth / container.clientHeight, 0.1, 100);
+  const camera = new THREE.PerspectiveCamera(45, 1, 0.1, 100);
   camera.position.copy(MODEL_CENTER).addScaledVector(VIEW_DIR, 4.0);
   camera.lookAt(MODEL_CENTER);
 
   const renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: 'high-performance' });
   renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
-  renderer.setSize(container.clientWidth, container.clientHeight, false);
+  renderer.setSize(container.clientWidth || 300, container.clientHeight || 150, false);
   Object.assign(renderer.domElement.style, { width:'100%', height:'100%', display:'block', position:'absolute', inset:'0' });
   renderer.shadowMap.enabled = true;
   renderer.shadowMap.type = THREE.PCFSoftShadowMap;
@@ -124,7 +124,7 @@ function startCubica3D() {
   container.appendChild(renderer.domElement);
 
   const labelRenderer = new CSS2DRenderer();
-  labelRenderer.setSize(container.clientWidth, container.clientHeight, false);
+  labelRenderer.setSize(container.clientWidth || 300, container.clientHeight || 150, false);
   Object.assign(labelRenderer.domElement.style, { position:'absolute', inset:'0', width:'100%', height:'100%', pointerEvents:'none' });
   container.appendChild(labelRenderer.domElement);
 
