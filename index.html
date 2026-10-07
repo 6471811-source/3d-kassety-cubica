@@ -6,7 +6,7 @@
 <title>Cubica 3D — v12.9</title>
 <style>
   * { box-sizing: border-box; }
-  html, body { margin: 0; padding: 0; height: 100%; overflow: hidden; background: #f4f2ee; }
+  html, body { margin: 0; padding: 0; height: 100%; background: #f4f2ee; }
   #cubica-3d { position: relative; width: 100%; max-width: 1200px; height: 100%; margin: 0 auto; overflow: hidden; background: #f4f2ee; }
   #cubica-3d.cubica-fallback-fs { position: fixed !important; inset: 0 !important; z-index: 99999; max-width: none; height: 100vh; width: 100vw; }
   .label-3d {
@@ -125,7 +125,7 @@ function startCubica3D() {
 
   const labelRenderer = new CSS2DRenderer();
   labelRenderer.setSize(container.clientWidth, container.clientHeight, false);
-  Object.assign(labelRenderer.domElement.style, { position:'absolute', inset:'0', width:'100%', height:'100%', pointerEvents:'none', overflow:'hidden' });
+  Object.assign(labelRenderer.domElement.style, { position:'absolute', inset:'0', width:'100%', height:'100%', pointerEvents:'none' });
   container.appendChild(labelRenderer.domElement);
 
   const controls = new OrbitControls(camera, renderer.domElement);
@@ -328,10 +328,10 @@ function startCubica3D() {
           const beak = new THREE.Mesh(new THREE.BoxGeometry(0.005, 0.004, 0.0030), matGalvDark);
           beak.position.set(sx*(len/2 - 0.001), FLANGE_T + WEB_H*0.72, 0); g.add(beak);
           const notch = new THREE.Mesh(new THREE.BoxGeometry(0.0012, 0.010, WEB_T + 0.0010), matSlot);
-          notch.position.set(sx*(len/2 - 0 +.010), FLANGE_T + WEB_H*0. 55, 0); g0.add(notch);
+          notch.position.set(sx*(len/2 - 0.010), FLANGE_T + WEB_H*0.55, 0); g.add(notch);
         }
       }
-      g.traverse(o => { if (o.isMesh){ o.castShadow = true; o.receiveShadow = true; }}.0055);
+      g.traverse(o => { if (o.isMesh){ o.castShadow = true; o.receiveShadow = true; }});
       return g;
     }
 
@@ -350,7 +350,7 @@ function startCubica3D() {
         curl.rotation.z = Math.PI / 2;
         curl.position.set(0, ledgeTopY - metalT, sz*(WEB_T/2 + 0.0125)); g.add(curl);
         const ear = new THREE.Mesh(new THREE.BoxGeometry(clipW, metalT, 0.0030), matClip);
-        ear.position.set(0, BULB_TOP - 0.0012, sz*(WEB_T/2));
+        ear.position.set(0, BULB_TOP - 0.0012, sz*(WEB_T/2 + 0.0055));
         ear.rotation.x = sz * 0.25; g.add(ear);
       }
       g.traverse(o => { if (o.isMesh) o.castShadow = true; });
@@ -623,7 +623,7 @@ function startCubica3D() {
       topPlate.position.set(0, HO_U_H - HO_U_T/2, 0);
       g.add(topPlate);
       const legL = makeUProfileLeg(length); legL.position.set(0, 0, -HO_U_W/2 + HO_U_T/2); g.add(legL);
-      const legR = makeUProfileLeg(length); legR.position.set(0, 0 new,  HO_U_W/2 - HO_U_T/2); g.add(legR);
+      const legR = makeUProfileLeg(length); legR.position.set(0, 0,  HO_U_W/2 - HO_U_T/2); g.add(legR);
       g.traverse(o => { if (o.isMesh) { o.castShadow = true; o.receiveShadow = true; } });
       return g;
     }
@@ -633,12 +633,11 @@ function startCubica3D() {
       const TOP_W = HO_Z_TOP_W, T_ = HO_Z_T;
       const shape = new THREE.Shape();
       shape.moveTo(-length/2, -TOP_W/2); shape.lineTo( length/2, -TOP_W/2);
-      shape.lineTo( length/2,  TOP_W/2); shape.lineTo(-length/2,  TOP_W/2); shape.lineTo(-length/2, -TOP_W THREE/2);
-      const holeZs = new Set(),.Group halfLen = length / 2;
-      for (const();
- cz of HO_U_Z) {
-        for (let      k = 0; ; k++) {
- const          const zA = cz - k * HO_Z_STEP, zB = cz + k * HO_Z_STEP;
+      shape.lineTo( length/2,  TOP_W/2); shape.lineTo(-length/2,  TOP_W/2); shape.lineTo(-length/2, -TOP_W/2);
+      const holeZs = new Set(), halfLen = length / 2;
+      for (const cz of HO_U_Z) {
+        for (let k = 0; ; k++) {
+          const zA = cz - k * HO_Z_STEP, zB = cz + k * HO_Z_STEP;
           let added = false;
           if (zA >= -halfLen + HO_Z_HOLE_R) { holeZs.add(parseFloat(zA.toFixed(6))); added = true; }
           if (zB <=  halfLen - HO_Z_HOLE_R) { holeZs.add(parseFloat(zB.toFixed(6))); added = true; }
@@ -659,7 +658,8 @@ function startCubica3D() {
     }
 
     function makeZProfile(length) {
-      const g = T_ = HO_Z_T, H_ = HO_Z_H, TOP_W = HO_Z_TOP_W, BOT_W = HO_Z_BOT_W;
+      const g = new THREE.Group();
+      const T_ = HO_Z_T, H_ = HO_Z_H, TOP_W = HO_Z_TOP_W, BOT_W = HO_Z_BOT_W;
       const wall = new THREE.Mesh(new THREE.BoxGeometry(T_, H_, length), matGalv);
       wall.position.set(0, H_/2, 0); g.add(wall);
       const topPlate = makeZProfileTopPlate(length);
