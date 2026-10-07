@@ -6,8 +6,8 @@
 <title>Cubica 3D — v12.9</title>
 <style>
   * { box-sizing: border-box; }
-  html, body { margin: 0; padding: 0; height: 100%; background: #f4f2ee; }
-  #cubica-3d { position: relative; width: 100%; max-width: 1200px; height: 100%; margin: 0 auto; overflow: hidden; background: #f4f2ee; }
+  html, body { margin: 0; padding: 0; width: 100%; height: 100%; overflow: hidden; background: #f4f2ee; }
+  #cubica-3d { position: relative; width: 100%; height: 100%; overflow: hidden; background: #f4f2ee; }
   #cubica-3d.cubica-fallback-fs { position: fixed !important; inset: 0 !important; z-index: 99999; max-width: none; height: 100vh; width: 100vw; }
   .label-3d {
     color: #2a2f35;
@@ -109,13 +109,21 @@ function startCubica3D() {
   const ZOOM_FACTOR = 0.72;
   const VIEW_DIR = new THREE.Vector3(0.62, 0.50, 0.60).normalize();
 
-  const camera = new THREE.PerspectiveCamera(45, container.clientWidth / container.clientHeight, 0.1, 100);
+  // ===== ИСПРАВЛЕНИЕ: берём размеры из window, а не из container =====
+  function getViewSize() {
+    const w = Math.max(1, window.innerWidth || document.documentElement.clientWidth || container.clientWidth);
+    const h = Math.max(1, window.innerHeight || document.documentElement.clientHeight || container.clientHeight);
+    return { w, h };
+  }
+
+  const size0 = getViewSize();
+  const camera = new THREE.PerspectiveCamera(45, size0.w / size0.h, 0.1, 100);
   camera.position.copy(MODEL_CENTER).addScaledVector(VIEW_DIR, 4.0);
   camera.lookAt(MODEL_CENTER);
 
   const renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: 'high-performance' });
   renderer.setPixelRatio(Math.min(window.devicePixelRatio, 1.5));
-  renderer.setSize(container.clientWidth, container.clientHeight, false);
+  renderer.setSize(size0.w, size0.h, false);
   Object.assign(renderer.domElement.style, { width:'100%', height:'100%', display:'block', position:'absolute', inset:'0' });
   renderer.shadowMap.enabled = true;
   renderer.shadowMap.type = THREE.PCFSoftShadowMap;
@@ -124,7 +132,7 @@ function startCubica3D() {
   container.appendChild(renderer.domElement);
 
   const labelRenderer = new CSS2DRenderer();
-  labelRenderer.setSize(container.clientWidth, container.clientHeight, false);
+  labelRenderer.setSize(size0.w, size0.h, false);
   Object.assign(labelRenderer.domElement.style, { position:'absolute', inset:'0', width:'100%', height:'100%', pointerEvents:'none' });
   container.appendChild(labelRenderer.domElement);
 
@@ -1020,9 +1028,15 @@ function startCubica3D() {
   }
   injectUI();
 
+  // ===== ИСПРАВЛЕНО: используем window.innerWidth/innerHeight и принудительно ставим размер контейнеру =====
   function onResize() {
-    const w = container.clientWidth, h = container.clientHeight;
-    if (w === 0 || h === 0) return;
+    const w = Math.max(1, window.innerWidth || document.documentElement.clientWidth || container.clientWidth);
+    const h = Math.max(1, window.innerHeight || document.documentElement.clientHeight || container.clientHeight);
+
+    // Принудительно ставим размеры контейнеру — Safari внутри iframe не всегда корректно считает 100%
+    container.style.width = w + 'px';
+    container.style.height = h + 'px';
+
     renderer.setSize(w, h, false);
     labelRenderer.setSize(w, h, false);
     camera.aspect = w / h;
@@ -1038,10 +1052,19 @@ function startCubica3D() {
     camera.lookAt(MODEL_CENTER);
     camera.updateProjectionMatrix();
   }
+
   window.addEventListener('resize', onResize);
   window.addEventListener('orientationchange', () => setTimeout(onResize, 200));
   if (typeof ResizeObserver !== 'undefined') { const ro = new ResizeObserver(() => onResize()); ro.observe(container); }
-  setTimeout(onResize, 100); setTimeout(onResize, 500); setTimeout(onResize, 1500); onResize();
+
+  // Вызываем несколько раз — Safari внутри iframe может менять размер с задержкой
+  setTimeout(onResize, 50);
+  setTimeout(onResize, 100);
+  setTimeout(onResize, 300);
+  setTimeout(onResize, 600);
+  setTimeout(onResize, 1200);
+  setTimeout(onResize, 2000);
+  onResize();
 
   const fsBtn = document.getElementById('cubica-fs-btn');
   const fsPath = document.getElementById('cubica-fs-path');
