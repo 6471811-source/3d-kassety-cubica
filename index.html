@@ -6,8 +6,8 @@
 <title>Cubica 3D — v12.9</title>
 <style>
   * { box-sizing: border-box; }
-  html, body { margin: 0; padding: 0; height: 100%; background: #f4f2ee; overflow: hidden; }
-  #cubica-3d { position: relative; width: 100%; max-width: 1200px; height: 100%; margin: 0 auto; overflow: hidden; background: #f4f2ee; }
+  html, body { margin: 0; padding: 0; width: 100%; height: 100%; overflow: hidden; background: #f4f2ee; }
+  #cubica-3d { position: relative; width: 100%; height: 100%; margin: 0; overflow: hidden; background: #f4f2ee; }
   #cubica-3d.cubica-fallback-fs { position: fixed !important; inset: 0 !important; z-index: 99999; max-width: none; height: 100vh; width: 100vw; }
   .label-3d {
     color: #2a2f35;
@@ -59,6 +59,23 @@ function startCubica3D() {
   const container = document.getElementById('cubica-3d');
   if (!container) { console.error('[Cubica 3D] Не найден #cubica-3d'); return; }
 
+  // Получаем реальные размеры iframe-окна. Safari внутри iframe отдаёт корректные значения
+  // только через window.innerWidth/innerHeight, а не через container.clientWidth/Height.
+  function getW() {
+    return Math.max(1,
+      window.innerWidth ||
+      document.documentElement.clientWidth ||
+      document.body.clientWidth ||
+      container.clientWidth || 800);
+  }
+  function getH() {
+    return Math.max(1,
+      window.innerHeight ||
+      document.documentElement.clientHeight ||
+      document.body.clientHeight ||
+      container.clientHeight || 431);
+  }
+
   const CELL = 0.6, COLS = 3, ROWS = 2;
   const W = COLS * CELL, D = ROWS * CELL;
 
@@ -109,13 +126,13 @@ function startCubica3D() {
   const ZOOM_FACTOR = 0.72;
   const VIEW_DIR = new THREE.Vector3(0.62, 0.50, 0.60).normalize();
 
-  const camera = new THREE.PerspectiveCamera(45, container.clientWidth / container.clientHeight, 0.1, 100);
+  const camera = new THREE.PerspectiveCamera(45, getW() / getH(), 0.1, 100);
   camera.position.copy(MODEL_CENTER).addScaledVector(VIEW_DIR, 4.0);
   camera.lookAt(MODEL_CENTER);
 
   const renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: 'high-performance' });
   renderer.setPixelRatio(Math.min(window.devicePixelRatio, 1.5));
-  renderer.setSize(container.clientWidth, container.clientHeight, false);
+  renderer.setSize(getW(), getH(), false);
   Object.assign(renderer.domElement.style, { width:'100%', height:'100%', display:'block', position:'absolute', inset:'0' });
   renderer.shadowMap.enabled = true;
   renderer.shadowMap.type = THREE.PCFSoftShadowMap;
@@ -124,7 +141,7 @@ function startCubica3D() {
   container.appendChild(renderer.domElement);
 
   const labelRenderer = new CSS2DRenderer();
-  labelRenderer.setSize(container.clientWidth, container.clientHeight, false);
+  labelRenderer.setSize(getW(), getH(), false);
   Object.assign(labelRenderer.domElement.style, { position:'absolute', inset:'0', width:'100%', height:'100%', pointerEvents:'none' });
   container.appendChild(labelRenderer.domElement);
 
@@ -890,37 +907,14 @@ function startCubica3D() {
       #cubica-tabs button.active { background: #9c1c1c; color: #fff; font-weight: 600; }
       #cubica-controls button.active { background: #e3d9cf; color: #9c1c1c; font-weight: 600; }
       #cubica-controls button[data-act="labels"] { border-left: 1px solid #d8d5d0; color: #9c1c1c; font-weight: 600; }
-
-      /* === Мобильный режим === */
       @media (max-width: 700px) {
         #cubica-ui { padding: 8px 6px 10px 6px; }
-        #cubica-tabs {
-          flex-wrap: nowrap;
-          overflow-x: auto;
-          -webkit-overflow-scrolling: touch;
-          scrollbar-width: none;
-          max-width: 100%;
-        }
+        #cubica-tabs { flex-wrap: nowrap; overflow-x: auto; -webkit-overflow-scrolling: touch; scrollbar-width: none; max-width: 100%; }
         #cubica-tabs::-webkit-scrollbar { display: none; }
-        #cubica-tabs button {
-          padding: 9px 12px;
-          font-size: 11px;
-          flex: 0 0 auto;
-          white-space: nowrap;
-        }
-        #cubica-controls {
-          flex-wrap: nowrap;
-          overflow-x: auto;
-          -webkit-overflow-scrolling: touch;
-          scrollbar-width: none;
-          max-width: 100%;
-        }
+        #cubica-tabs button { padding: 9px 12px; font-size: 11px; flex: 0 0 auto; white-space: nowrap; }
+        #cubica-controls { flex-wrap: nowrap; overflow-x: auto; -webkit-overflow-scrolling: touch; scrollbar-width: none; max-width: 100%; }
         #cubica-controls::-webkit-scrollbar { display: none; }
-        #cubica-controls button {
-          padding: 6px 9px;
-          font-size: 10px;
-          flex: 0 0 auto;
-        }
+        #cubica-controls button { padding: 6px 9px; font-size: 10px; flex: 0 0 auto; }
       }
     `;
     document.head.appendChild(style);
@@ -968,10 +962,7 @@ function startCubica3D() {
         btnA.classList.add('active'); btnE.classList.remove('active');
         btnP.classList.remove('active'); btnPlay.classList.remove('active');
         setTimeout(() => {
-          if (labelsVisible) {
-            labelsReady = true;
-            applyLabelsVisibility();
-          }
+          if (labelsVisible) { labelsReady = true; applyLabelsVisibility(); }
         }, 900);
       } else {
         labelsVisible = false;
@@ -995,9 +986,7 @@ function startCubica3D() {
         const name = btn.dataset.sys;
         if (name === activeModel) return;
         activeModel = name;
-        for (const key in MODELS) {
-          MODELS[key].root.visible = (key === activeModel);
-        }
+        for (const key in MODELS) { MODELS[key].root.visible = (key === activeModel); }
         applyLabelsVisibility();
         ui.querySelectorAll('#cubica-tabs button').forEach(b => {
           b.classList.toggle('active', b.dataset.sys === name);
@@ -1043,8 +1032,11 @@ function startCubica3D() {
   injectUI();
 
   function onResize() {
-    const w = container.clientWidth, h = container.clientHeight;
-    if (w === 0 || h === 0) return;
+    const w = getW(), h = getH();
+    // Принудительно проставляем размеры контейнеру — Safari внутри iframe не всегда корректно считает 100%
+    container.style.width = w + 'px';
+    container.style.height = h + 'px';
+
     renderer.setSize(w, h, false);
     labelRenderer.setSize(w, h, false);
     camera.aspect = w / h;
@@ -1060,10 +1052,19 @@ function startCubica3D() {
     camera.lookAt(MODEL_CENTER);
     camera.updateProjectionMatrix();
   }
+
   window.addEventListener('resize', onResize);
   window.addEventListener('orientationchange', () => setTimeout(onResize, 200));
   if (typeof ResizeObserver !== 'undefined') { const ro = new ResizeObserver(() => onResize()); ro.observe(container); }
-  setTimeout(onResize, 100); setTimeout(onResize, 500); setTimeout(onResize, 1500); onResize();
+
+  // Много вызовов с задержками — Safari внутри iframe иногда отдаёт размеры с опозданием
+  setTimeout(onResize, 50);
+  setTimeout(onResize, 100);
+  setTimeout(onResize, 300);
+  setTimeout(onResize, 600);
+  setTimeout(onResize, 1200);
+  setTimeout(onResize, 2000);
+  onResize();
 
   const fsBtn = document.getElementById('cubica-fs-btn');
   const fsPath = document.getElementById('cubica-fs-path');
